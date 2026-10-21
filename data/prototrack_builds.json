@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-21 09:03",
+  "updatedAt": "2026-10-21 09:04",
   "builds": [
     {
       "id": "DOOR-2026-001",
@@ -8,13 +8,22 @@
       "fwVersion": "v2.0.0",
       "status": "In Assembly",
       "location": "Lab A - Calibration Bench 1",
-      "updatedAt": "2026-10-21 08:58",
+      "updatedAt": "2026-10-21 09:04",
       "calibration": {
         "station": "Lab A - Calibration Bench 1",
         "technician": "",
         "environment": "22°C, 45% RH",
         "lastCalDate": "2026-10-21",
-        "measurements": [],
+        "measurements": [
+          {
+            "id": "m_1792587885121",
+            "param": "TEST",
+            "target": 5,
+            "tol": -1,
+            "measured": 5.01,
+            "unit": "v"
+          }
+        ],
         "tests": [
           {
             "id": "t_init_1792587485306",
