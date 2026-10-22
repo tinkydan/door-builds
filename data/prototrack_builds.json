@@ -1,6 +1,43 @@
 {
-  "updatedAt": "2026-10-21 15:18",
+  "updatedAt": "2026-10-21 20:36",
   "builds": [
+    {
+      "id": "PROTO-2026-003",
+      "name": "Trst2",
+      "hwVersion": "Rev 3.0A",
+      "fwVersion": "v2.0.0",
+      "status": "In Assembly",
+      "location": "Lab A - Calibration Bench 1",
+      "updatedAt": "2026-10-21 20:36",
+      "calibration": {
+        "station": "Lab A - Calibration Bench 1",
+        "technician": "",
+        "environment": "22°C, 45% RH",
+        "lastCalDate": "2026-10-21",
+        "measurements": [],
+        "tests": [
+          {
+            "id": "t_init_1792629369212",
+            "name": "Initial Power-On Self Test (POST)",
+            "notes": "Created with build",
+            "status": "PENDING"
+          }
+        ]
+      },
+      "photos": [],
+      "logs": [
+        {
+          "id": "l_init_1792629369212",
+          "timestamp": "2026-10-21 20:36",
+          "level": "INFO",
+          "subsystem": "WORKSPACE",
+          "message": "Initialized build PROTO-2026-003 (Rev 3.0A / v2.0.0)",
+          "fw": "v2.0.0"
+        }
+      ],
+      "issues": [],
+      "notes": []
+    },
     {
       "id": "DOOR-2026-001",
       "name": "Test",
