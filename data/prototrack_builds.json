@@ -1,14 +1,14 @@
 {
-  "updatedAt": "2026-10-21 20:36",
+  "updatedAt": "2026-10-21 20:37",
   "builds": [
     {
-      "id": "PROTO-2026-003",
+      "id": "PROTO-2026-002",
       "name": "Trst2",
       "hwVersion": "Rev 3.0A",
       "fwVersion": "v2.0.0",
       "status": "In Assembly",
       "location": "Lab A - Calibration Bench 1",
-      "updatedAt": "2026-10-21 20:36",
+      "updatedAt": "2026-10-21 20:37",
       "calibration": {
         "station": "Lab A - Calibration Bench 1",
         "technician": "",
@@ -17,7 +17,7 @@
         "measurements": [],
         "tests": [
           {
-            "id": "t_init_1792629369212",
+            "id": "t_init_1792629437705",
             "name": "Initial Power-On Self Test (POST)",
             "notes": "Created with build",
             "status": "PENDING"
@@ -27,11 +27,11 @@
       "photos": [],
       "logs": [
         {
-          "id": "l_init_1792629369212",
-          "timestamp": "2026-10-21 20:36",
+          "id": "l_init_1792629437706",
+          "timestamp": "2026-10-21 20:37",
           "level": "INFO",
           "subsystem": "WORKSPACE",
-          "message": "Initialized build PROTO-2026-003 (Rev 3.0A / v2.0.0)",
+          "message": "Initialized build PROTO-2026-002 (Rev 3.0A / v2.0.0)",
           "fw": "v2.0.0"
         }
       ],
