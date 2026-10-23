@@ -1,4 +1,121 @@
 {
-  "updatedAt": "2026-10-22 20:00",
-  "builds": []
+  "updatedAt": "2026-10-22 20:21",
+  "builds": [
+    {
+      "id": "DOOR-005-001",
+      "name": "Door Controller #001",
+      "macAddress": "",
+      "hwVersion": "V1.05",
+      "fwVersion": "1.008",
+      "status": "Testing",
+      "location": "Lab A - Calibration Bench 1",
+      "updatedAt": "2026-10-22 20:21",
+      "calibration": {
+        "station": "Lab A - Calibration Bench 1",
+        "technician": "",
+        "environment": "22°C, 45% RH",
+        "lastCalDate": "2026-10-23",
+        "measurements": []
+      },
+      "tests": [
+        {
+          "id": "t_init_1792714909240_0",
+          "name": "Initial Power-On Self Test (POST)",
+          "notes": "Created with build",
+          "status": "PENDING"
+        }
+      ],
+      "photos": [],
+      "logs": [],
+      "issues": [],
+      "notes": []
+    },
+    {
+      "id": "DOOR-005-002",
+      "name": "Door Controller #002",
+      "macAddress": "",
+      "hwVersion": "V1.05",
+      "fwVersion": "1.008",
+      "status": "Testing",
+      "location": "Lab A - Calibration Bench 1",
+      "updatedAt": "2026-10-22 20:21",
+      "calibration": {
+        "station": "Lab A - Calibration Bench 1",
+        "technician": "",
+        "environment": "22°C, 45% RH",
+        "lastCalDate": "2026-10-23",
+        "measurements": []
+      },
+      "tests": [
+        {
+          "id": "t_init_1792714909240_1",
+          "name": "Initial Power-On Self Test (POST)",
+          "notes": "Created with build",
+          "status": "PENDING"
+        }
+      ],
+      "photos": [],
+      "logs": [],
+      "issues": [],
+      "notes": []
+    },
+    {
+      "id": "DOOR-005-003",
+      "name": "Door Controller #003",
+      "macAddress": "",
+      "hwVersion": "V1.05",
+      "fwVersion": "1.008",
+      "status": "Testing",
+      "location": "Lab A - Calibration Bench 1",
+      "updatedAt": "2026-10-22 20:21",
+      "calibration": {
+        "station": "Lab A - Calibration Bench 1",
+        "technician": "",
+        "environment": "22°C, 45% RH",
+        "lastCalDate": "2026-10-23",
+        "measurements": []
+      },
+      "tests": [
+        {
+          "id": "t_init_1792714909240_2",
+          "name": "Initial Power-On Self Test (POST)",
+          "notes": "Created with build",
+          "status": "PENDING"
+        }
+      ],
+      "photos": [],
+      "logs": [],
+      "issues": [],
+      "notes": []
+    },
+    {
+      "id": "DOOR-005-004",
+      "name": "Door Controller #004",
+      "macAddress": "",
+      "hwVersion": "V1.05",
+      "fwVersion": "1.008",
+      "status": "Testing",
+      "location": "Lab A - Calibration Bench 1",
+      "updatedAt": "2026-10-22 20:21",
+      "calibration": {
+        "station": "Lab A - Calibration Bench 1",
+        "technician": "",
+        "environment": "22°C, 45% RH",
+        "lastCalDate": "2026-10-23",
+        "measurements": []
+      },
+      "tests": [
+        {
+          "id": "t_init_1792714909240_3",
+          "name": "Initial Power-On Self Test (POST)",
+          "notes": "Created with build",
+          "status": "PENDING"
+        }
+      ],
+      "photos": [],
+      "logs": [],
+      "issues": [],
+      "notes": []
+    }
+  ]
 }
