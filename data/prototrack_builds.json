@@ -7,9 +7,9 @@
       "macAddress": "",
       "hwVersion": "V1.05",
       "fwVersion": "1.008",
-      "status": "Testing",
-      "location": "Lab A - Calibration Bench 1",
-      "updatedAt": "2026-10-22 20:21",
+      "status": "Scrap",
+      "location": "Storage Bin",
+      "updatedAt": "2026-10-22 20:23",
       "calibration": {
         "station": "Lab A - Calibration Bench 1",
         "technician": "",
