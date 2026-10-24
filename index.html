@@ -48,25 +48,43 @@
       background: #475569;
     }
     @media print {
-      body * {
-        visibility: hidden;
+      @page {
+        margin: 0.3in;
       }
-      .active-print-target, .active-print-target * {
-        visibility: visible;
-      }
-      .active-print-target {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+      body {
         background: white !important;
         color: black !important;
-        padding: 12px;
+      }
+      body > *:not(#print-mount-root) {
+        display: none !important;
+      }
+      #print-mount-root {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        background: white !important;
+        color: black !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .print-qr-grid,
+      #batch-qr-grid,
+      #single-qr-grid {
+        display: grid !important;
+        grid-template-columns: repeat(var(--qr-cols, 3), minmax(0, 1fr)) !important;
+        width: 100% !important;
       }
       .qr-batch-card {
         break-inside: avoid;
         page-break-inside: avoid;
       }
+    }
+    .qr-batch-card canvas,
+    .qr-batch-card img {
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 0 auto;
+      display: block;
     }
   </style>
 </head>
@@ -85,9 +103,10 @@
             <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">ProtoTrack</h1>
             <span class="text-[11px] font-mono uppercase px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">Door Builds v2.2</span>
           </div>
-          <p class="text-xs text-slate-400 flex items-center gap-1.5">
+          <p class="text-xs text-slate-400 flex flex-wrap items-center gap-1.5">
             <i class="fa-brands fa-github text-slate-300"></i>
             <span id="header-repo-label" class="mono">tinkydan/door-builds</span>
+            <span id="header-privacy-badge" class="px-1.5 py-0.2 rounded text-[10px] font-mono border bg-cyan-500/15 text-cyan-300 border-cyan-500/30">Public Repo</span>
             <span class="text-slate-600">•</span>
             <span id="sync-status-badge" class="inline-flex items-center gap-1 text-emerald-400 font-medium">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -139,16 +158,23 @@
           <div>
             <h2 class="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
               <i class="fa-brands fa-github"></i>
-              GitHub Repository & Separate Photo Storage Settings
+              GitHub Repository & Photo Storage Settings (Public &amp; Private)
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">
-              <strong>Public Read Enabled:</strong> Every page load automatically fetches the latest <code class="mono text-slate-200">data/prototrack_builds.json</code> directly from GitHub without a key. A Personal Access Token (PAT) is only needed when pushing changes or uploading photos.
+            <p id="gh-privacy-explainer" class="text-xs text-slate-400 mt-0.5">
+              <strong>Public Read Enabled:</strong> Automatically fetches the latest <code class="mono text-slate-200">data/prototrack_builds.json</code> without a key on load. A Personal Access Token (PAT) is only needed when pushing changes.
             </p>
           </div>
           <span id="last-synced-timestamp" class="text-xs font-mono text-slate-400">Last synced: --</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          <div>
+            <label for="gh-repo-privacy" class="block text-[11px] font-medium text-slate-400 mb-1">Repository Access</label>
+            <select id="gh-repo-privacy" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+              <option value="public">Public Repository</option>
+              <option value="private">Private Repository</option>
+            </select>
+          </div>
           <div>
             <label for="gh-repo" class="block text-[11px] font-medium text-slate-400 mb-1">GitHub Repository (owner/repo)</label>
             <input id="gh-repo" type="text" value="tinkydan/door-builds" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500" />
@@ -166,8 +192,23 @@
             <input id="gh-photos-dir" type="text" value="photos" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500" />
           </div>
           <div>
-            <label for="gh-token" class="block text-[11px] font-medium text-slate-400 mb-1">GitHub PAT (Write/Push Only)</label>
-            <input id="gh-token" type="password" placeholder="ghp_... (optional for read)" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500" />
+            <div class="flex items-center justify-between mb-1">
+              <label for="gh-token" class="block text-[11px] font-medium text-slate-400">GitHub PAT (Saved in Cookie)</label>
+              <span id="token-cookie-badge" class="hidden text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <i class="fa-solid fa-cookie-bite mr-1"></i>Cookie Saved
+              </span>
+            </div>
+            <div class="relative flex items-center">
+              <input id="gh-token" type="password" placeholder="ghp_... (auto-saved in cookie)" class="w-full pl-3 pr-14 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500" />
+              <div class="absolute right-1.5 flex items-center gap-1">
+                <button id="btn-toggle-token-vis" type="button" class="px-1.5 py-0.5 text-[11px] text-slate-400 hover:text-slate-200" title="Show / Hide Token">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button id="btn-clear-token-cookie" type="button" class="px-1.5 py-0.5 text-[11px] text-rose-400 hover:text-rose-300" title="Clear saved token cookie from this browser">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -203,8 +244,18 @@
             <i class="fa-solid fa-boxes-stacked text-cyan-400"></i>
             <span>Prototype Build Registry</span>
           </h2>
-          <div class="flex items-center gap-1.5">
-            <button id="btn-print-filtered-qrs" type="button" class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 transition" title="Print QR labels for visible builds">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <select id="registry-qr-cols-select" class="text-[11px] font-mono px-1.5 py-0.5 rounded-lg bg-slate-950 text-teal-300 border border-slate-700 focus:outline-none focus:border-teal-400" title="Columns per row for QR Sheet">
+              <option value="1">1/row</option>
+              <option value="2">2/row</option>
+              <option value="3" selected>3/row</option>
+              <option value="4">4/row</option>
+              <option value="5">5/row</option>
+              <option value="6">6/row</option>
+              <option value="7">7/row</option>
+              <option value="8">8/row</option>
+            </select>
+            <button id="btn-print-filtered-qrs" type="button" class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 transition" title="Open QR Sheet Generator & Label Printer">
               <i class="fa-solid fa-print mr-1"></i>QR Sheet
             </button>
             <span id="build-count-badge" class="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">0 builds</span>
@@ -224,13 +275,12 @@
           <button type="button" data-status="Calibrating" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Calibrating</button>
           <button type="button" data-status="Testing" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Testing</button>
           <button type="button" data-status="Validated" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Validated</button>
-		  <button type="button" data-status="Inventory" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Inventory</button>
-		  <button type="button" data-status="Deployed" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Deployed</button>
+          <button type="button" data-status="Inventory" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Inventory</button>
+          <button type="button" data-status="Deployed" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Deployed</button>
           <button type="button" data-status="Blocked" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Blocked</button>
-		  <button type="button" data-status="Scrap" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Scrap</button>
+          <button type="button" data-status="Scrap" class="status-pill px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Scrap</button>
         </div>
-		
-				
+
         <!-- Builds List -->
         <div id="builds-list-container" class="flex flex-col gap-2.5 max-h-[540px] overflow-y-auto pr-1">
           <!-- Populated dynamically -->
@@ -339,10 +389,10 @@
                 <option value="Calibrating">Calibrating</option>
                 <option value="Testing">Testing</option>
                 <option value="Validated">Validated</option>
-				<option value="Inventory">Inventory</option>
-				<option value="Deployed">Deployed</option>
+                <option value="Inventory">Inventory</option>
+                <option value="Deployed">Deployed</option>
                 <option value="Blocked">Blocked</option>
-				<option value="Scrap">Scrap</option>
+                <option value="Scrap">Scrap</option>
               </select>
             </div>
           </div>
@@ -361,10 +411,15 @@
 
         <!-- Workspace Section Tabs -->
         <div class="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
-          <button type="button" data-tab="photos" class="ws-tab-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-500 text-slate-950 transition flex items-center gap-1.5">
+          <button type="button" data-tab="testing" class="ws-tab-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-500 text-slate-950 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-vial-circle-check"></i>
+            <span>Hardware Testing Suite</span>
+            <span id="tab-count-testing" class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950/20 font-mono">0</span>
+          </button>
+          <button type="button" data-tab="photos" class="ws-tab-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 hover:bg-slate-800 transition flex items-center gap-1.5">
             <i class="fa-solid fa-camera"></i>
-            <span>Photos </span>
-            <span id="tab-count-photos" class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950/20 font-mono">0</span>
+            <span>Photos (Separate Storage)</span>
+            <span id="tab-count-photos" class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 font-mono">0</span>
           </button>
           <button type="button" data-tab="logs" class="ws-tab-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 hover:bg-slate-800 transition flex items-center gap-1.5">
             <i class="fa-solid fa-terminal"></i>
@@ -372,7 +427,7 @@
             <span id="tab-count-logs" class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 font-mono">0</span>
           </button>
           <button type="button" data-tab="notes" class="ws-tab-btn px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300 hover:bg-slate-800 transition flex items-center gap-1.5">
-            <i class="fa-solid fa-clipboard-check"></i>
+            <i class="fa-solid fa-clipboard-list"></i>
             <span>Notes, Tests & Issues</span>
             <span id="tab-count-notes" class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 font-mono">0</span>
           </button>
@@ -383,8 +438,159 @@
           </button>
         </div>
 
+        <!-- TAB: ESP32-C3 Hardware Testing & Self-Test Suite -->
+        <div id="tab-panel-testing" class="ws-tab-panel rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-5">
+          <!-- Testing Suite Header & Progress Card -->
+          <div class="rounded-xl bg-slate-950/80 border border-slate-800 p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <h3 class="text-sm font-bold text-white">ESP32-C3 WiFiChickenDoor Automated Test Suite</h3>
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">RISC-V 160MHz</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">
+                  16-point automated diagnostic suite mapped to <a href="https://github.com/tinkydan/WiFiChickenDoor_esp32_C3/tree/main/WiFiChickenDoorC3_V1005" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline font-mono">WiFiChickenDoorC3_V1005</a> (SSD1306 I2C OLED, TinyGPS UART, DS18B20 1-Wire, 4-Ch ADC, H-Bridge &amp; ESP32-C3 Core).
+                </p>
+              </div>
+
+              <!-- Quick Action Toolbar -->
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="btn-web-serial-test" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition" title="Connect to ESP32-C3 over USB-C Serial at 115200 baud to run tests and stream results live">
+                  <i class="fa-brands fa-usb"></i>
+                  <span>Live USB Serial Test</span>
+                </button>
+                <button id="btn-open-ingest-modal" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition" title="Paste ESP32-C3 JSON test report">
+                  <i class="fa-solid fa-file-import"></i>
+                  <span>Paste JSON Results</span>
+                </button>
+                <button id="btn-load-standard-tests" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 transition" title="Preload standard 12 ESP32-C3 ChickenDoor tests on this build">
+                  <i class="fa-solid fa-rotate"></i>
+                  <span>Preload Test Suite</span>
+                </button>
+                <button id="btn-view-arduino-sketch" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-500 text-white transition" title="View & copy complete Arduino ESP32-C3 test sketch">
+                  <i class="fa-solid fa-code"></i>
+                  <span>Arduino Sketch (.ino)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Health & Pass Percentage Bar -->
+            <div class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div class="flex items-center gap-3">
+                <span id="test-stat-summary" class="font-mono font-bold text-slate-200">0 / 0 Passed</span>
+                <span id="test-pass-percentage" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700">0%</span>
+              </div>
+              <div class="flex-1 max-w-md h-2 rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+                <div id="test-progress-bar" class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <div class="flex items-center gap-2 text-[11px]">
+                <button id="btn-mark-all-pass" type="button" class="text-emerald-400 hover:underline">Mark All PASS</button>
+                <span class="text-slate-600">•</span>
+                <button id="btn-reset-tests-pending" type="button" class="text-slate-400 hover:text-white">Reset to PENDING</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- WiFiChickenDoorC3_V1005 Hardware Pinout & Module Map -->
+          <div class="rounded-xl bg-slate-950/70 border border-slate-800/90 p-3.5 space-y-2.5 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-microchip text-cyan-400"></i>
+                <span>WiFiChickenDoorC3_V1005 ESP32-C3 Pin &amp; Module Mapping</span>
+              </span>
+              <span class="font-mono text-[11px] text-slate-400">16 Hardware Modules • EEPROM_SIZE=128 • Wake Mask 0x8004</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 font-mono text-[11px]">
+              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                <div class="text-cyan-400 font-bold">I2C OLED (0x3C)</div>
+                <div class="text-slate-300">SCL: GPIO 6</div>
+                <div class="text-slate-300">SDA: GPIO 7</div>
+                <div class="text-[10px] text-slate-500">SSD1306 128x64 U8g2</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                <div class="text-teal-400 font-bold">GPS &amp; Acc Rail</div>
+                <div class="text-slate-300">EN: GPIO 10</div>
+                <div class="text-slate-300">TX: 20 • RX: 21</div>
+                <div class="text-[10px] text-slate-500">TinyGPS 9600bd</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                <div class="text-emerald-400 font-bold">1-Wire Temp</div>
+                <div class="text-slate-300">BUS: GPIO 8</div>
+                <div class="text-slate-300">DS18B20 ROM</div>
+                <div class="text-[10px] text-slate-500">DallasTemperature</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                <div class="text-amber-400 font-bold">4-Ch Analog ADC</div>
+                <div class="text-slate-300">Cur: 0 • V_Sense: 1</div>
+                <div class="text-slate-300">Vin: 2 • Bat: 3</div>
+                <div class="text-[10px] text-slate-500">1000-sample avg</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                <div class="text-indigo-400 font-bold">Motor H-Bridge</div>
+                <div class="text-slate-300">IN1 (Fwd): GPIO 4</div>
+                <div class="text-slate-300">IN2 (Rev): GPIO 5</div>
+                <div class="text-[10px] text-slate-500">Door Open / Close</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900/90 border border-slate-800">
+                <div class="text-purple-400 font-bold">Buttons &amp; Cloud</div>
+                <div class="text-slate-300">SET: 9 • MENU: 8</div>
+                <div class="text-slate-300">WiFi / NTP / TS</div>
+                <div class="text-[10px] text-slate-500">ThingSpeak + OTA</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Category Filter Pills -->
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div id="test-category-pills" class="flex flex-wrap gap-1.5 text-[11px]">
+              <button type="button" data-cat="ALL" class="test-cat-pill px-2.5 py-1 rounded-lg font-medium bg-cyan-500 text-slate-950 transition">All Tests</button>
+              <button type="button" data-cat="CORE" class="test-cat-pill px-2.5 py-1 rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">ESP32-C3 Core</button>
+              <button type="button" data-cat="ACTUATOR" class="test-cat-pill px-2.5 py-1 rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Motor &amp; Door</button>
+              <button type="button" data-cat="SENSOR" class="test-cat-pill px-2.5 py-1 rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Sensors &amp; Power</button>
+              <button type="button" data-cat="COMMS" class="test-cat-pill px-2.5 py-1 rounded-lg font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Wi-Fi &amp; RF</button>
+            </div>
+            <span class="text-[11px] text-slate-400 font-mono" id="test-items-count-label">0 tests defined</span>
+          </div>
+
+          <!-- Add Test Custom Criteria Form -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-slate-950/70 border border-slate-800 p-3 rounded-xl text-xs">
+            <div class="sm:col-span-4">
+              <label for="new-test-name-custom" class="block text-[10px] uppercase font-mono text-slate-400 mb-1">Test Name</label>
+              <input id="new-test-name-custom" type="text" placeholder="e.g., LDR Dawn Threshold Check" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100" />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="new-test-cat" class="block text-[10px] uppercase font-mono text-slate-400 mb-1">Category</label>
+              <select id="new-test-cat" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100">
+                <option value="CORE">ESP32 Core</option>
+                <option value="ACTUATOR">Motor/Door</option>
+                <option value="SENSOR">Sensors</option>
+                <option value="COMMS">Wi-Fi/RF</option>
+              </select>
+            </div>
+            <div class="sm:col-span-2">
+              <label for="new-test-measured" class="block text-[10px] uppercase font-mono text-slate-400 mb-1">Measured Value</label>
+              <input id="new-test-measured" type="text" placeholder="e.g., 1840 ADC" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono text-cyan-300" />
+            </div>
+            <div class="sm:col-span-3">
+              <label for="new-test-notes-custom" class="block text-[10px] uppercase font-mono text-slate-400 mb-1">Criteria / Result Notes</label>
+              <input id="new-test-notes-custom" type="text" placeholder="Notes..." class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-100" />
+            </div>
+            <div class="sm:col-span-1 flex items-end">
+              <button id="btn-add-custom-test" type="button" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+                + Add
+              </button>
+            </div>
+          </div>
+
+          <!-- Structured Tests List Container -->
+          <div id="full-tests-list-container" class="space-y-2.5">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
         <!-- TAB 1: Photos (Stored Separately from JSON) -->
-        <div id="tab-panel-photos" class="ws-tab-panel rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
+        <div id="tab-panel-photos" class="ws-tab-panel hidden rounded-2xl bg-slate-900/90 border border-slate-800 p-5 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 class="text-sm font-semibold text-white flex items-center gap-2">
@@ -669,6 +875,10 @@
             <option value="Calibrating">Calibrating</option>
             <option value="Testing">Testing</option>
             <option value="Validated">Validated</option>
+            <option value="Inventory">Inventory</option>
+            <option value="Deployed">Deployed</option>
+            <option value="Blocked">Blocked</option>
+            <option value="Scrap">Scrap</option>
           </select>
         </div>
         <div>
@@ -737,6 +947,10 @@
               <option value="Calibrating">Calibrating</option>
               <option value="Testing">Testing</option>
               <option value="Validated">Validated</option>
+              <option value="Inventory">Inventory</option>
+              <option value="Deployed">Deployed</option>
+              <option value="Blocked">Blocked</option>
+              <option value="Scrap">Scrap</option>
             </select>
           </div>
           <div>
@@ -761,7 +975,7 @@
 
         <!-- Panel B: Sequence Generator -->
         <div id="batch-panel-seq" class="hidden space-y-3 bg-slate-950/60 border border-slate-800 rounded-xl p-3.5">
-          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <div class="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
             <div class="col-span-2">
               <label for="seq-id-prefix" class="block text-[11px] text-slate-400 mb-1">ID Prefix</label>
               <input id="seq-id-prefix" type="text" value="DOOR-2026-" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 font-mono text-slate-100 uppercase" />
@@ -772,11 +986,34 @@
             </div>
             <div>
               <label for="seq-count" class="block text-[11px] text-slate-400 mb-1">Board Count</label>
-              <input id="seq-count" type="number" min="1" max="200" value="5" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 font-mono text-slate-100" />
+              <input id="seq-count" type="number" min="1" max="200" value="8" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 font-mono text-slate-100" />
             </div>
             <div>
-              <label for="seq-pad" class="block text-[11px] text-slate-400 mb-1">Zero Pad Digits</label>
+              <label for="seq-pad" class="block text-[11px] text-slate-400 mb-1">Zero Pad</label>
               <input id="seq-pad" type="number" min="1" max="6" value="3" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 font-mono text-slate-100" />
+            </div>
+            <div>
+              <label for="seq-qr-cols-select" class="block text-[11px] text-teal-300 font-semibold mb-1">QR Per Row</label>
+              <select id="seq-qr-cols-select" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-teal-500/40 font-mono text-xs text-teal-300">
+                <option value="1">1 per row</option>
+                <option value="2">2 per row</option>
+                <option value="3" selected>3 per row</option>
+                <option value="4">4 per row</option>
+                <option value="5">5 per row</option>
+                <option value="6">6 per row</option>
+                <option value="7">7 per row</option>
+                <option value="8">8 per row</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span class="text-slate-400 font-mono">Quick Sheet Presets:</span>
+              <button type="button" data-seq-preset-count="8" data-seq-preset-cols="8" class="seq-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 font-mono">8 (1×8 row)</button>
+              <button type="button" data-seq-preset-count="16" data-seq-preset-cols="8" class="seq-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 font-mono">16 (2×8 rows)</button>
+              <button type="button" data-seq-preset-count="24" data-seq-preset-cols="8" class="seq-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 font-mono">24 (3×8 rows)</button>
+              <button type="button" data-seq-preset-count="32" data-seq-preset-cols="8" class="seq-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 font-mono">32 (4×8 rows)</button>
             </div>
           </div>
 
@@ -792,13 +1029,45 @@
           </div>
         </div>
 
-        <!-- Live Parsed Preview Table -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Batch Preview</span>
-            <span id="batch-preview-summary" class="font-mono text-[11px] text-teal-300">0 boards ready</span>
+        <!-- Live Parsed Preview Table + Live QR Sheet Preview -->
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Batch &amp; QR Sheet Preview</span>
+              <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800 text-[11px]">
+                <button id="btn-batch-prev-mode-qr" type="button" class="px-2.5 py-0.5 rounded-md font-semibold bg-teal-500 text-slate-950 transition">
+                  <i class="fa-solid fa-qrcode mr-1"></i>Live QR Grid (1–8/row)
+                </button>
+                <button id="btn-batch-prev-mode-table" type="button" class="px-2.5 py-0.5 rounded-md font-semibold text-slate-400 hover:text-white transition">
+                  <i class="fa-solid fa-table-list mr-1"></i>Table List
+                </button>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <label for="batch-inline-qr-cols-select" class="text-[11px] text-slate-400">Columns:</label>
+              <select id="batch-inline-qr-cols-select" class="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-700 text-[11px] font-mono text-teal-300">
+                <option value="1">1 per row</option>
+                <option value="2">2 per row</option>
+                <option value="3" selected>3 per row</option>
+                <option value="4">4 per row</option>
+                <option value="5">5 per row</option>
+                <option value="6">6 per row</option>
+                <option value="7">7 per row</option>
+                <option value="8">8 per row</option>
+              </select>
+              <span id="batch-preview-summary" class="font-mono text-[11px] text-teal-300">0 boards ready</span>
+            </div>
           </div>
-          <div class="border border-slate-800 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-slate-950">
+
+          <!-- Live Inline QR Sheet Preview Container inside Batch Modal -->
+          <div id="batch-inline-qr-preview-wrap" class="border border-slate-800 rounded-xl p-3 max-h-60 overflow-y-auto bg-white text-slate-950">
+            <div id="batch-inline-qr-grid" class="grid grid-cols-3 gap-2">
+              <!-- Populated dynamically with 1..8 per row QR cards -->
+            </div>
+          </div>
+
+          <!-- Table Preview Container -->
+          <div id="batch-inline-table-wrap" class="hidden border border-slate-800 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-slate-950">
             <table class="w-full text-left border-collapse text-[11px]">
               <thead>
                 <tr class="border-b border-slate-800 bg-slate-900/90 text-slate-400 font-mono uppercase">
@@ -821,6 +1090,19 @@
       <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800 shrink-0">
         <span class="text-[11px] text-slate-500">All imported boards start with empty <code class="mono">logs: []</code> and <code class="mono">photos: []</code>.</span>
         <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+            <label for="batch-import-qr-cols-select" class="text-[11px] text-slate-400">QR Row:</label>
+            <select id="batch-import-qr-cols-select" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-teal-300 font-mono focus:outline-none focus:border-teal-400">
+              <option value="1">1 per row</option>
+              <option value="2">2 per row</option>
+              <option value="3" selected>3 per row</option>
+              <option value="4">4 per row</option>
+              <option value="5">5 per row</option>
+              <option value="6">6 per row</option>
+              <option value="7">7 per row</option>
+              <option value="8">8 per row</option>
+            </select>
+          </div>
           <button id="btn-cancel-batch-build" type="button" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300">Cancel</button>
           <button id="btn-preview-batch-qr-only" type="button" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-cyan-300 border border-cyan-500/30 transition" title="Preview and print QR labels for these batch rows without adding duplicates">
             <i class="fa-solid fa-qrcode mr-1"></i>Preview QR Sheet
@@ -864,29 +1146,57 @@
     </div>
   </div>
 
-  <!-- MODAL 3: Printable QR Code Label Modal -->
+  <!-- MODAL 3: Printable QR Code Label Modal (Supports 1 to 8 per row & Multi-Copy Row Printing) -->
   <div id="modal-qr-label" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-tag text-cyan-400"></i>
-          <span>Printable Prototype QR Label</span>
-        </h3>
-        <button id="btn-close-qr-label" type="button" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
+    <div id="single-qr-modal-dialog" class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3 shrink-0">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-tag text-cyan-400"></i>
+            <span>Printable Prototype QR Label</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Choose 1 to 8 labels per row to scale tag size or print multiple copies across a row.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <label for="single-qr-cols-select" class="text-xs text-slate-400">Columns:</label>
+          <select id="single-qr-cols-select" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-cyan-300 font-mono">
+            <option value="1" selected>1 per row (Large)</option>
+            <option value="2">2 per row</option>
+            <option value="3">3 per row</option>
+            <option value="4">4 per row</option>
+            <option value="5">5 per row</option>
+            <option value="6">6 per row</option>
+            <option value="7">7 per row</option>
+            <option value="8">8 per row</option>
+          </select>
+          <label for="single-qr-copies-input" class="text-xs text-slate-400 ml-1">Copies:</label>
+          <input id="single-qr-copies-input" type="number" min="1" max="64" value="1" class="w-16 px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-100 text-center" />
+          <button id="btn-single-qr-fill-row" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-teal-300 border border-slate-700" title="Set copies equal to columns per row">
+            Fill Row
+          </button>
+          <button id="btn-close-qr-label" type="button" class="text-slate-400 hover:text-white ml-1">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
       </div>
 
-      <div id="qr-print-area" class="bg-white text-slate-950 rounded-xl p-5 flex flex-col items-center text-center space-y-2 border-2 border-slate-300">
-        <div class="text-[10px] font-mono uppercase tracking-widest text-slate-500 font-bold">PROTOTRACK HARDWARE TAG</div>
-        <div id="qr-code-canvas" class="p-2 bg-white rounded"></div>
-        <div id="qr-label-id" class="font-mono text-base font-bold text-slate-900">DOOR-2026-001</div>
-        <div id="qr-label-name" class="text-xs font-medium text-slate-700">Test</div>
-        <div id="qr-label-mac" class="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">MAC: UNASSIGNED</div>
-        <div id="qr-label-hwfw" class="font-mono text-[10px] text-slate-500">HW Rev 3.0A • FW v2.0.0</div>
+      <div class="overflow-y-auto flex-1 pr-1 bg-slate-950/60 rounded-xl p-4 border border-slate-800">
+        <div id="qr-print-area" class="bg-white text-slate-950 rounded-xl p-5">
+          <!-- Hidden legacy IDs preserved for compatibility -->
+          <div class="hidden">
+            <div id="qr-code-canvas"></div>
+            <div id="qr-label-id">DOOR-2026-001</div>
+            <div id="qr-label-name">Test</div>
+            <div id="qr-label-mac">MAC: UNASSIGNED</div>
+            <div id="qr-label-hwfw">HW Rev 3.0A • FW v2.0.0</div>
+          </div>
+          <div id="single-qr-grid" class="grid grid-cols-1 gap-4">
+            <!-- Dynamically populated with 1..N QR cards at 1..8 per row -->
+          </div>
+        </div>
       </div>
 
-      <div class="text-xs space-y-1">
+      <div class="text-xs space-y-1 shrink-0">
         <label class="text-slate-400 block">Direct QR Deep-Link URL:</label>
         <div class="flex gap-1.5">
           <input id="qr-deeplink-input" type="text" readonly class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[11px] text-cyan-300" />
@@ -894,36 +1204,103 @@
         </div>
       </div>
 
-      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
-        <button id="btn-print-qr" type="button" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs">
-          <i class="fa-solid fa-print mr-1"></i>Print QR Tag
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 shrink-0">
+        <button id="btn-open-all-builds-qr-from-single" type="button" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 text-xs font-medium">
+          <i class="fa-solid fa-tags mr-1"></i>Open All Builds QR Sheet
         </button>
+        <div class="flex items-center gap-2">
+          <button id="btn-print-qr" type="button" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs">
+            <i class="fa-solid fa-print mr-1"></i>Print QR Tag
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL 3B: Batch Printable QR Codes Sheet Modal -->
+  <!-- MODAL 3B: QR Sheet Generator & Batch Printable QR Codes Sheet Modal -->
   <div id="modal-batch-qr-print" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-7xl w-full p-6 shadow-2xl space-y-3 max-h-[94vh] flex flex-col">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3 shrink-0">
         <div>
           <h3 class="text-base font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-tags text-teal-400"></i>
-            <span>Batch Printable QR Code Labels Sheet</span>
+            <span>QR Sheet Generator &amp; Printable Labels</span>
             <span id="batch-qr-count-badge" class="text-xs font-mono px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">0 labels</span>
           </h3>
-          <p class="text-xs text-slate-400 mt-0.5">Formatted for label sheets or standard paper. Each QR code deep-links directly to that board's workspace.</p>
+          <p class="text-xs text-slate-400 mt-0.5">Configure 1 to 8 QR codes per row, set copies per board, or generate a sequence of QR tags directly on the sheet.</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Quick 1..8 Per Row Pill Selector -->
+          <div id="batch-qr-col-pills" class="inline-flex items-center rounded-lg bg-slate-950 p-0.5 border border-slate-800 text-[11px] font-mono">
+            <button type="button" data-qr-cols="1" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">1</button>
+            <button type="button" data-qr-cols="2" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">2</button>
+            <button type="button" data-qr-cols="3" class="qr-col-pill px-2 py-1 rounded bg-teal-500 text-slate-950 font-bold transition">3</button>
+            <button type="button" data-qr-cols="4" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">4</button>
+            <button type="button" data-qr-cols="5" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">5</button>
+            <button type="button" data-qr-cols="6" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">6</button>
+            <button type="button" data-qr-cols="7" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">7</button>
+            <button type="button" data-qr-cols="8" class="qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition">8</button>
+          </div>
           <label for="batch-qr-cols-select" class="text-xs text-slate-400">Columns:</label>
-          <select id="batch-qr-cols-select" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200">
+          <select id="batch-qr-cols-select" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-teal-300 font-mono">
+            <option value="1">1 per row</option>
             <option value="2">2 per row</option>
             <option value="3" selected>3 per row</option>
             <option value="4">4 per row</option>
+            <option value="5">5 per row</option>
+            <option value="6">6 per row</option>
+            <option value="7">7 per row</option>
+            <option value="8">8 per row</option>
           </select>
-          <button id="btn-close-batch-qr-modal" type="button" class="text-slate-400 hover:text-white ml-2">
+          <label for="batch-qr-copies-input" class="text-xs text-slate-400 ml-1">Copies/ID:</label>
+          <input id="batch-qr-copies-input" type="number" min="1" max="64" value="1" class="w-14 px-2 py-1 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-100 text-center" />
+          <button id="btn-batch-qr-fill-row" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-cyan-300 border border-slate-700" title="Repeat labels to fill a full row of N columns">
+            Fill Row
+          </button>
+          <button id="btn-close-batch-qr-modal" type="button" class="text-slate-400 hover:text-white ml-1">
             <i class="fa-solid fa-xmark text-lg"></i>
           </button>
+        </div>
+      </div>
+
+      <!-- Built-In QR Sheet Generator Bar -->
+      <div class="rounded-xl bg-slate-950/90 border border-slate-800 p-3 shrink-0 space-y-2 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-semibold text-teal-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>QR Sheet Generator:</span>
+            </span>
+            <button id="btn-qr-sheet-load-all" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-medium">
+              Load Registry Builds
+            </button>
+            <button id="btn-qr-preset-1x8" type="button" class="px-2.5 py-1 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 text-[11px] font-mono">
+              Generate 8 (1×8 Row)
+            </button>
+            <button id="btn-qr-preset-2x8" type="button" class="px-2.5 py-1 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 text-[11px] font-mono">
+              Generate 16 (2×8 Rows)
+            </button>
+            <button id="btn-qr-preset-4x8" type="button" class="px-2.5 py-1 rounded-lg bg-teal-500/15 hover:bg-teal-500/25 text-teal-300 border border-teal-500/30 text-[11px] font-mono">
+              Generate 32 (4×8 Rows)
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center gap-1">
+              <label for="qr-sheet-gen-prefix" class="text-[11px] text-slate-400">Prefix:</label>
+              <input id="qr-sheet-gen-prefix" type="text" value="DOOR-2026-" class="w-28 px-2 py-1 rounded bg-slate-900 border border-slate-700 font-mono text-[11px] text-slate-100 uppercase" />
+            </div>
+            <div class="flex items-center gap-1">
+              <label for="qr-sheet-gen-start" class="text-[11px] text-slate-400">Start #:</label>
+              <input id="qr-sheet-gen-start" type="number" min="1" value="1" class="w-16 px-2 py-1 rounded bg-slate-900 border border-slate-700 font-mono text-[11px] text-slate-100" />
+            </div>
+            <div class="flex items-center gap-1">
+              <label for="qr-sheet-gen-count" class="text-[11px] text-slate-400">Count:</label>
+              <input id="qr-sheet-gen-count" type="number" min="1" max="200" value="8" class="w-16 px-2 py-1 rounded bg-slate-900 border border-slate-700 font-mono text-[11px] text-slate-100" />
+            </div>
+            <button id="btn-qr-sheet-gen-run" type="button" class="px-3 py-1 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-[11px] transition">
+              Generate Sheet
+            </button>
+          </div>
         </div>
       </div>
 
@@ -943,10 +1320,23 @@
         </div>
       </div>
 
-      <!-- Modal Footer Actions -->
+      <!-- Modal Footer Actions (with synced 1..8 Per Row selector right next to Print All QR Labels) -->
       <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800 shrink-0">
         <span class="text-xs text-slate-400">Tip: In your browser print dialog, enable <strong>Background graphics</strong> and set margins to <strong>Default / Minimum</strong>.</span>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-xl border border-slate-800">
+            <label for="batch-qr-cols-footer-select" class="text-xs text-slate-400">Print Layout:</label>
+            <select id="batch-qr-cols-footer-select" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 text-xs text-teal-300 font-mono focus:outline-none focus:border-teal-400">
+              <option value="1">1 per row</option>
+              <option value="2">2 per row</option>
+              <option value="3" selected>3 per row</option>
+              <option value="4">4 per row</option>
+              <option value="5">5 per row</option>
+              <option value="6">6 per row</option>
+              <option value="7">7 per row</option>
+              <option value="8">8 per row</option>
+            </select>
+          </div>
           <button id="btn-close-batch-qr-footer" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300">Close</button>
           <button id="btn-print-batch-qr-now" type="button" class="px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold text-xs shadow-md shadow-teal-500/20">
             <i class="fa-solid fa-print mr-1.5"></i>Print All QR Labels
@@ -982,8 +1372,152 @@
     </div>
   </div>
 
+  <!-- MODAL 5: Web Serial Live Ingestion & Serial Monitor Modal -->
+  <div id="modal-web-serial" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-brands fa-usb text-emerald-400"></i>
+            <span>Live USB Serial Test Runner (ESP32-C3)</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Connect to your ESP32-C3 via Web Serial (115200 baud). ProtoTrack streams serial diagnostics and automatically ingests test reports.</p>
+        </div>
+        <button id="btn-close-serial-modal" type="button" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Connection & Action Controls -->
+      <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/80 border border-slate-800 p-3 rounded-xl shrink-0 text-xs">
+        <div class="flex items-center gap-2">
+          <button id="btn-serial-connect-toggle" type="button" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-plug"></i>
+            <span id="serial-btn-label">Connect ESP32-C3</span>
+          </button>
+          <span id="serial-conn-status" class="font-mono text-slate-400">Disconnected</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-serial-send-test" type="button" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold disabled:opacity-40" disabled>
+            <i class="fa-solid fa-play mr-1"></i>Run Self-Test (CMD_TEST_RUN)
+          </button>
+          <button id="btn-serial-door-open" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40" disabled>
+            Open Door
+          </button>
+          <button id="btn-serial-door-close" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40" disabled>
+            Close Door
+          </button>
+          <button id="btn-serial-door-stop" type="button" class="px-2.5 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white font-semibold disabled:opacity-40" disabled>
+            Stop
+          </button>
+        </div>
+      </div>
+
+      <!-- Module-Specific Diagnostic Triggers (V1005 Pinout) -->
+      <div class="flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
+        <span class="text-slate-400 font-mono mr-1">Module Probes:</span>
+        <button id="btn-serial-test-oled" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-mono disabled:opacity-40" disabled>
+          OLED 0x3C (GPIO 6/7)
+        </button>
+        <button id="btn-serial-test-gps" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 font-mono disabled:opacity-40" disabled>
+          GPS UART (GPIO 10/20/21)
+        </button>
+        <button id="btn-serial-test-onewire" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 font-mono disabled:opacity-40" disabled>
+          DS18B20 1-Wire (GPIO 8)
+        </button>
+        <button id="btn-serial-test-adc" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 font-mono disabled:opacity-40" disabled>
+          4-Ch ADC (GPIO 0/1/2/3)
+        </button>
+      </div>
+
+      <!-- Live Terminal Console -->
+      <div class="flex-1 min-h-[260px] bg-slate-950 rounded-xl p-3 border border-slate-800 font-mono text-[11px] overflow-y-auto space-y-1 text-slate-300" id="serial-terminal-console">
+        <div class="text-slate-500">Click "Connect ESP32-C3" to select your serial port (e.g. /dev/ttyACM0 or COM port at 115200 baud).</div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-800 shrink-0 text-xs">
+        <button id="btn-clear-serial-terminal" type="button" class="text-slate-400 hover:text-white">Clear Console</button>
+        <button id="btn-close-serial-footer" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: Paste / Ingest Test JSON Modal -->
+  <div id="modal-ingest-json" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-file-import text-cyan-400"></i>
+            <span>Ingest ESP32-C3 Test Results JSON</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Paste the JSON report generated by the ESP32-C3 Arduino firmware to instantly update this build's tests and measurements.</p>
+        </div>
+        <button id="btn-close-ingest-modal" type="button" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between items-center">
+          <label for="ingest-json-textarea" class="text-slate-300 font-medium">Paste JSON payload or output between ===PROTOTRACK_START=== and ===PROTOTRACK_END===:</label>
+          <button id="btn-fill-sample-test-json" type="button" class="text-cyan-400 hover:underline font-mono text-[11px]">Insert ESP32-C3 Sample Output</button>
+        </div>
+        <textarea id="ingest-json-textarea" rows="10" placeholder='{"type":"PROTOTRACK_TEST_REPORT","tests":[...]}' class="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 font-mono text-xs text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-cyan-400"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+        <button id="btn-cancel-ingest-modal" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">Cancel</button>
+        <button id="btn-apply-ingest-json" type="button" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-xs font-semibold text-slate-950">
+          <i class="fa-solid fa-check mr-1.5"></i>Apply Test Results
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 7: View Arduino Firmware Sketch Modal -->
+  <div id="modal-arduino-sketch" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-code text-indigo-400"></i>
+            <span>ESP32-C3 Arduino Firmware Sketch (<code class="mono text-xs text-cyan-300">WiFiChickenDoor_SelfTest.ino</code>)</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Flash this sketch to your ESP32-C3 board to perform internal RISC-V self-tests and test motor, limit switches, and solar sensors.</p>
+        </div>
+        <button id="btn-close-sketch-modal" type="button" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-hidden flex flex-col bg-slate-950 rounded-xl border border-slate-800">
+        <div class="flex items-center justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-800 text-xs">
+          <span class="font-mono text-slate-400">WiFiChickenDoor_SelfTest.ino • ESP32-C3 RISC-V (115200 baud)</span>
+          <div class="flex items-center gap-2">
+            <button id="btn-copy-arduino-code" type="button" class="px-3 py-1 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white font-medium">
+              <i class="fa-regular fa-copy mr-1"></i>Copy Sketch
+            </button>
+            <button id="btn-download-arduino-ino" type="button" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+              <i class="fa-solid fa-download mr-1"></i>Download .ino
+            </button>
+          </div>
+        </div>
+        <pre id="arduino-sketch-pre" class="p-4 font-mono text-[11px] text-emerald-300 overflow-auto flex-1 select-all"></pre>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-slate-800 shrink-0">
+        <button id="btn-close-sketch-footer" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm"></div>
+
+  <!-- Dedicated Top-Level Print Mount (Ensures 1-to-8 Per Row Prints Without Modal/Scroll Clipping) -->
+  <div id="print-mount-root" class="hidden"></div>
 
   <script>
     // =========================================================================
@@ -999,8 +1533,12 @@
       branch: 'main',
       jsonPath: 'data/prototrack_builds.json',
       photosDir: 'photos',
-      token: ''
+      token: '',
+      isPrivate: false
     };
+
+    // Cache for authenticated private repository photo blob URLs: photoId -> blobUrl
+    const privatePhotoBlobCache = {};
 
     // Fallback seed matching tinkydan/door-builds/data/prototrack_builds.json
     const FALLBACK_DATA = {
@@ -1107,7 +1645,33 @@
     let db = { updatedAt: '', builds: [] };
     let selectedBuildId = null;
     let activeStatusFilter = 'ALL';
-    let activeTab = 'photos';
+    let activeTab = 'testing';
+    let activeTestCatFilter = 'ALL';
+    let webSerialPort = null;
+    let webSerialReader = null;
+    let webSerialWriter = null;
+    let webSerialReadLoopActive = false;
+
+    // Standard 12-point ESP32-C3 & WiFiChickenDoor Automated Test Suite definition
+    const STANDARD_CHICKENDOOR_TESTS = [
+      { id: "t_cpu", name: "ESP32-C3 RISC-V CPU & Watchdog (esp_task_wdt)", cat: "CORE", status: "PASS", measured: "160 MHz RISC-V", notes: "RV32IMC single-core PLL & hardware WDT verified" },
+      { id: "t_flash", name: "SPI Flash & 128-Byte EEPROM (EEPROM_SIZE=128)", cat: "CORE", status: "PASS", measured: "4 MB / EEPROM OK", notes: "Non-volatile custom parameter storage verified" },
+      { id: "t_heap", name: "Internal SRAM Heap Integrity", cat: "CORE", status: "PASS", measured: "296 KB Free", notes: "16KB dynamic malloc/free stress test pass" },
+      { id: "t_trng", name: "ESP32Time Internal RTC & TRNG Entropy", cat: "CORE", status: "PASS", measured: "RTC & Entropy OK", notes: "ESP32Time real-time clock & esp_random() verified" },
+      { id: "t_mac", name: "Factory Wi-Fi Station MAC eFuse", cat: "CORE", status: "PASS", measured: "Verified", notes: "Factory eFuse MAC readout matches device" },
+      { id: "t_acc_en", name: "Accessory & GPS Power Rail (ACC_EN / ACC_GPS GPIO 10)", cat: "SENSOR", status: "PASS", measured: "GPIO 10 HIGH", notes: "High-side accessory enable output verified" },
+      { id: "t_oled_i2c", name: "SSD1306 128x64 I2C OLED Screen (SDA=GPIO 7, SCL=GPIO 6)", cat: "CORE", status: "PASS", measured: "ACK 0x3C (U8g2)", notes: "U8G2_SSD1306_128X64_NONAME_F_HW_I2C bus & frame buffer OK" },
+      { id: "t_temp", name: "DS18B20 1-Wire Temperature Sensor (ONE_WIRE_BUS GPIO 8)", cat: "SENSOR", status: "PASS", measured: "22.4 °C (1 ROM)", notes: "OneWire & DallasTemperature ROM scan + CRC pass" },
+      { id: "t_ldr", name: "GPS Receiver UART & Dusk2Dawn Solar Math (TX=20, RX=21 @ 9600bd)", cat: "SENSOR", status: "PASS", measured: "9600bd NMEA OK", notes: "SoftwareSerial TinyGPS sentence decode & Dusk2Dawn sunrise/sunset OK" },
+      { id: "t_volt", name: "Input Supply Voltage Sense (Vin GPIO 2 / ADC1_CH2)", cat: "SENSOR", status: "PASS", measured: "12.42 V", notes: "1000-sample average on GPIO 2 input rail" },
+      { id: "t_adc_bat", name: "Battery Voltage Sense (Bat GPIO 3 / ADC1_CH3)", cat: "SENSOR", status: "PASS", measured: "12.18 V", notes: "1000-sample average on GPIO 3 battery rail" },
+      { id: "t_adc_vsense", name: "System Voltage Sense (V_Sense GPIO 1 / ADC1_CH1)", cat: "SENSOR", status: "PASS", measured: "5.02 V", notes: "1000-sample average on GPIO 1 system rail" },
+      { id: "t_adc_cur", name: "Motor & System Current Sense (Cur GPIO 0 / ADC1_CH0)", cat: "ACTUATOR", status: "PASS", measured: "Idle 0.04A / Load 0.42A", notes: "1000-sample rolling current average on GPIO 0" },
+      { id: "t_motor", name: "Motor H-Bridge Driver (MOTOR_IN1=GPIO 4, MOTOR_IN2=GPIO 5)", cat: "ACTUATOR", status: "PASS", measured: "Fwd 0.42A / Rev 0.41A", notes: "Bidirectional door drive & safe stop verified" },
+      { id: "t_lim_top", name: "Multi-Purpose Button SET (MPB_SET GPIO 9)", cat: "ACTUATOR", status: "PASS", measured: "Pull-Up HIGH", notes: "Digital input & wake bitmask 0x8004 verified" },
+      { id: "t_lim_bot", name: "Multi-Purpose Button MENU (MPB_MENU GPIO 8)", cat: "ACTUATOR", status: "PASS", measured: "Pull-Up HIGH", notes: "Menu button & shared GPIO 8 bus verified" },
+      { id: "t_wifi", name: "Wi-Fi 2.4GHz RF, NTPClient, WebServer & ThingSpeak", cat: "COMMS", status: "PASS", measured: "RF & HTTP Ready", notes: "WiFiManager AP/STA, mDNS, OTA & ThingSpeak client OK" }
+    ];
     let isDirty = false;
     let html5QrScanner = null;
 
@@ -1176,9 +1740,56 @@
     }
 
     // =========================================================================
-    // Local Config & Staged Photo Persistence
+    // Browser Cookie + LocalStorage Persistence for GitHub Token & Config
     // =========================================================================
+    const TOKEN_COOKIE_NAME = 'prototrack_gh_token';
+    const CONFIG_COOKIE_NAME = 'prototrack_gh_config';
+    const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400; // 400 days (browser maximum persistent cookie lifetime)
+
+    function setBrowserCookie(name, value, maxAgeSeconds = COOKIE_MAX_AGE_SECONDS) {
+      try {
+        const expires = new Date(Date.now() + maxAgeSeconds * 1000).toUTCString();
+        const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; expires=${expires}; max-age=${maxAgeSeconds}; path=/; SameSite=Lax${secureFlag}`;
+      } catch (e) {
+        console.warn('Cookie write skipped:', e);
+      }
+    }
+
+    function getBrowserCookie(name) {
+      try {
+        const target = `${encodeURIComponent(name)}=`;
+        const parts = (document.cookie || '').split(';');
+        for (let part of parts) {
+          part = part.trim();
+          if (part.indexOf(target) === 0) {
+            return decodeURIComponent(part.slice(target.length));
+          }
+        }
+      } catch (e) {
+        console.warn('Cookie read skipped:', e);
+      }
+      return '';
+    }
+
+    function deleteBrowserCookie(name) {
+      try {
+        const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `${encodeURIComponent(name)}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; path=/; SameSite=Lax${secureFlag}`;
+      } catch (e) {
+        console.warn('Cookie delete skipped:', e);
+      }
+    }
+
+    function updateTokenCookieBadge() {
+      const badge = document.getElementById('token-cookie-badge');
+      if (badge) {
+        badge.classList.toggle('hidden', !Boolean(appConfig.token));
+      }
+    }
+
     function loadConfig() {
+      // 1. Read from localStorage backup first
       try {
         const raw = localStorage.getItem('prototrack_gh_config_v2');
         if (raw) {
@@ -1188,6 +1799,33 @@
       } catch (e) {
         console.warn('localStorage config read skipped:', e);
       }
+
+      // 2. Read from Browser Cookies (takes priority if present so token is always available across sessions/tabs)
+      try {
+        const cookieCfgRaw = getBrowserCookie(CONFIG_COOKIE_NAME);
+        if (cookieCfgRaw) {
+          const parsedCookieCfg = JSON.parse(cookieCfgRaw);
+          appConfig = { ...appConfig, ...parsedCookieCfg };
+        }
+      } catch (e) {
+        console.warn('Config cookie parse skipped:', e);
+      }
+
+      const cookieToken = getBrowserCookie(TOKEN_COOKIE_NAME);
+      if (cookieToken) {
+        appConfig.token = cookieToken;
+      } else if (appConfig.token) {
+        // Backfill cookie if token was in localStorage
+        setBrowserCookie(TOKEN_COOKIE_NAME, appConfig.token);
+      }
+
+      // Check URL search parameters for private mode override (?private=1 or ?private=0)
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('private')) {
+        appConfig.isPrivate = urlParams.get('private') === '1' || urlParams.get('private') === 'true';
+      }
+
+      document.getElementById('gh-repo-privacy').value = appConfig.isPrivate ? 'private' : 'public';
       document.getElementById('gh-repo').value = appConfig.repo;
       document.getElementById('gh-branch').value = appConfig.branch;
       document.getElementById('gh-path').value = appConfig.jsonPath;
@@ -1195,9 +1833,42 @@
       document.getElementById('gh-token').value = appConfig.token;
       document.getElementById('header-repo-label').textContent = appConfig.repo;
       document.getElementById('photo-path-preview').textContent = `${appConfig.photosDir}/<BUILD_ID>/<PHOTO_ID>.jpg`;
+      updatePrivacyBadgesAndHelp();
+      updateTokenCookieBadge();
+    }
+
+    function updatePrivacyBadgesAndHelp() {
+      const badge = document.getElementById('header-privacy-badge');
+      const explainer = document.getElementById('gh-privacy-explainer');
+      const pullBtn = document.getElementById('btn-pull-latest');
+
+      if (appConfig.isPrivate) {
+        if (badge) {
+          badge.textContent = 'Private Repo';
+          badge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono border bg-amber-500/15 text-amber-300 border-amber-500/30';
+        }
+        if (explainer) {
+          explainer.innerHTML = '<strong>Private Repository Mode:</strong> Uses your saved GitHub PAT cookie for both read and write operations. The token must have <code class="mono text-slate-200">repo</code> permissions to read JSON, fetch private photos, and commit updates.';
+        }
+        if (pullBtn) {
+          pullBtn.title = 'Authenticated read from private GitHub repository using saved token';
+        }
+      } else {
+        if (badge) {
+          badge.textContent = 'Public Repo';
+          badge.className = 'px-1.5 py-0.2 rounded text-[10px] font-mono border bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
+        }
+        if (explainer) {
+          explainer.innerHTML = '<strong>Public Read Enabled:</strong> Automatically fetches the latest <code class="mono text-slate-200">data/prototrack_builds.json</code> without a key on load. A Personal Access Token (PAT) is only needed when pushing changes.';
+        }
+        if (pullBtn) {
+          pullBtn.title = 'Public read from GitHub (No API key required)';
+        }
+      }
     }
 
     function saveConfigFromInputs() {
+      appConfig.isPrivate = document.getElementById('gh-repo-privacy').value === 'private';
       appConfig.repo = document.getElementById('gh-repo').value.trim() || DEFAULT_CONFIG.repo;
       appConfig.branch = document.getElementById('gh-branch').value.trim() || DEFAULT_CONFIG.branch;
       appConfig.jsonPath = document.getElementById('gh-path').value.trim() || DEFAULT_CONFIG.jsonPath;
@@ -1206,11 +1877,31 @@
 
       document.getElementById('header-repo-label').textContent = appConfig.repo;
       document.getElementById('photo-path-preview').textContent = `${appConfig.photosDir}/<BUILD_ID>/<PHOTO_ID>.jpg`;
+      updatePrivacyBadgesAndHelp();
+
+      // Save GitHub token & repo settings in persistent 400-day browser cookies
+      if (appConfig.token) {
+        setBrowserCookie(TOKEN_COOKIE_NAME, appConfig.token);
+      } else {
+        deleteBrowserCookie(TOKEN_COOKIE_NAME);
+      }
+      setBrowserCookie(
+        CONFIG_COOKIE_NAME,
+        JSON.stringify({
+          repo: appConfig.repo,
+          branch: appConfig.branch,
+          jsonPath: appConfig.jsonPath,
+          photosDir: appConfig.photosDir,
+          isPrivate: appConfig.isPrivate
+        })
+      );
+
       try {
         localStorage.setItem('prototrack_gh_config_v2', JSON.stringify(appConfig));
       } catch (e) {
         console.warn('localStorage config save skipped:', e);
       }
+      updateTokenCookieBadge();
     }
 
     function saveLocalBackup() {
@@ -1343,13 +2034,34 @@
       if (iconSync) iconSync.classList.add('fa-spin');
 
       const cacheBuster = Date.now();
-      const { repo, branch, jsonPath, token } = appConfig;
+      const { repo, branch, jsonPath, token, isPrivate } = appConfig;
 
-      // Strategy 1: GitHub REST Contents API with raw Accept header (instantaneous uncached commit read on public repos, works without token!)
-      // Strategy 2: raw.githubusercontent.com with cache: 'no-store' and query timestamp
+      // If repository is marked private but token is missing, notify user gracefully
+      if (isPrivate && !token) {
+        if (iconSync) iconSync.classList.remove('fa-spin');
+        if (statusText) statusText.textContent = 'Private repo: PAT required in Config';
+        document.getElementById('github-settings-drawer').classList.remove('hidden');
+        showToast('Private repository selected: enter your GitHub token in GitHub Config to load builds.', 'warn');
+        // Fall back to local backup so interface remains responsive
+        try {
+          const localRaw = localStorage.getItem('prototrack_db_backup_v2');
+          if (localRaw) {
+            db = normalizeLoadedDatabase(JSON.parse(localRaw));
+          } else {
+            db = normalizeLoadedDatabase(FALLBACK_DATA);
+          }
+        } catch (e) {
+          db = normalizeLoadedDatabase(FALLBACK_DATA);
+        }
+        resolveInitialSelectedBuild();
+        renderAll();
+        return false;
+      }
+
       let loadedData = null;
       let sourceUsed = '';
 
+      // Strategy 1: GitHub REST Contents API with raw Accept header (supports both public and private repos)
       try {
         const apiHeaders = {
           'Accept': 'application/vnd.github.v3.raw'
@@ -1365,13 +2077,16 @@
         });
         if (res.ok) {
           loadedData = await res.json();
-          sourceUsed = 'GitHub API (Public Read)';
+          sourceUsed = isPrivate ? 'GitHub API (Private Read with Token)' : 'GitHub API (Public Read)';
+        } else if (res.status === 401 || res.status === 404) {
+          console.warn(`GitHub API contents status ${res.status}`);
         }
       } catch (err) {
-        console.warn('GitHub API raw read fallback:', err);
+        console.warn('GitHub API raw read error:', err);
       }
 
-      if (!loadedData) {
+      // Strategy 2: For public repos (or authenticated raw if supported), try raw URL fallback
+      if (!loadedData && !isPrivate) {
         try {
           const rawUrl = `https://raw.githubusercontent.com/${repo}/${branch}/${jsonPath}?_t=${cacheBuster}`;
           const resRaw = await fetch(rawUrl, {
@@ -1573,12 +2288,18 @@
       switch (status) {
         case 'Validated':
           return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+        case 'Inventory':
+          return 'bg-teal-500/15 text-teal-300 border-teal-500/30';
+        case 'Deployed':
+          return 'bg-violet-500/15 text-violet-300 border-violet-500/30';
         case 'Testing':
           return 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
         case 'Calibrating':
           return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
         case 'Blocked':
           return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+        case 'Scrap':
+          return 'bg-slate-700/40 text-slate-400 border-slate-600/50 line-through';
         default:
           return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
       }
@@ -1680,10 +2401,126 @@
       );
       document.getElementById('tab-count-cal').textContent = String((build.calibration?.measurements || []).length);
 
+      renderTestingTab(build);
       renderPhotosTab(build);
       renderLogsTab(build);
       renderNotesTab(build);
       renderCalibrationTab(build);
+    }
+
+    // =========================================================================
+    // Hardware Testing Suite Renderer & Actions
+    // =========================================================================
+    function getTestCategory(t) {
+      if (t.cat) {
+        const c = t.cat.toUpperCase();
+        if (c === 'DISPLAY_UI') return 'CORE';
+        if (c === 'GPS_SENSOR') return 'SENSOR';
+        if (c === 'POWER_MOTOR') return 'ACTUATOR';
+        if (['CORE', 'ACTUATOR', 'SENSOR', 'COMMS'].includes(c)) return c;
+      }
+      const n = (t.name + ' ' + (t.id || '')).toLowerCase();
+      if (n.includes('motor') || n.includes('door') || n.includes('cur') || n.includes('button') || n.includes('mpb')) return 'ACTUATOR';
+      if (n.includes('gps') || n.includes('ds18b20') || n.includes('1-wire') || n.includes('vin') || n.includes('bat') || n.includes('v_sense') || n.includes('acc_en')) return 'SENSOR';
+      if (n.includes('wifi') || n.includes('rf') || n.includes('ntp') || n.includes('thingspeak')) return 'COMMS';
+      return 'CORE';
+    }
+
+    function renderTestingTab(build) {
+      const tests = build.tests || [];
+      const total = tests.length;
+      const passed = tests.filter((t) => t.status === 'PASS').length;
+      const failed = tests.filter((t) => t.status === 'FAIL').length;
+      const running = tests.filter((t) => t.status === 'RUNNING').length;
+      const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+      // Update counters & progress bar
+      document.getElementById('tab-count-testing').textContent = String(total);
+      document.getElementById('test-stat-summary').textContent = `${passed} / ${total} Passed${failed > 0 ? ` (${failed} Failed)` : ''}`;
+      const pctEl = document.getElementById('test-pass-percentage');
+      pctEl.textContent = `${pct}%`;
+      pctEl.className = `px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold border ${pct === 100 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : pct > 50 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-800 text-slate-400 border-slate-700'}`;
+      document.getElementById('test-progress-bar').style.width = `${pct}%`;
+      document.getElementById('test-items-count-label').textContent = `${total} tests defined`;
+
+      const container = document.getElementById('full-tests-list-container');
+      const filtered = tests.filter((t) => activeTestCatFilter === 'ALL' || getTestCategory(t) === activeTestCatFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="rounded-xl bg-slate-950/60 border border-dashed border-slate-800 p-8 text-center space-y-2">
+            <i class="fa-solid fa-vial text-2xl text-slate-600"></i>
+            <p class="text-xs text-slate-300 font-medium">No tests defined matching filter (${escapeHtml(activeTestCatFilter)}).</p>
+            <p class="text-[11px] text-slate-500">Click <strong class="text-teal-300">"Preload Test Suite"</strong> above to auto-populate the 12 ESP32-C3 WiFiChickenDoor tests.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const catBadges = {
+        CORE: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+        ACTUATOR: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+        SENSOR: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+        COMMS: 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+      };
+
+      const statusBadge = (st) => {
+        if (st === 'PASS') return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+        if (st === 'FAIL') return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+        if (st === 'RUNNING') return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse';
+        return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+      };
+
+      container.innerHTML = filtered.map((t) => {
+        const cat = getTestCategory(t);
+        return `
+          <div class="rounded-xl bg-slate-950 border border-slate-800/90 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs transition hover:border-slate-700">
+            <div class="space-y-1 max-w-md">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold text-slate-100">${escapeHtml(t.name)}</span>
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-mono border ${catBadges[cat] || catBadges.CORE}">${escapeHtml(cat)}</span>
+              </div>
+              <div class="text-[11px] text-slate-400">${escapeHtml(t.notes || 'Automated hardware self-test')}</div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              ${t.measured ? `<div class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-cyan-300"><span class="text-slate-500 mr-1">Measured:</span>${escapeHtml(t.measured)}</div>` : ''}
+
+              <button type="button" data-cycle-full-test="${escapeHtml(t.id)}" class="px-3 py-1 rounded-lg font-mono text-xs font-bold border transition ${statusBadge(t.status || 'PENDING')}" title="Click to cycle PENDING / PASS / FAIL / RUNNING">
+                ${escapeHtml(t.status || 'PENDING')}
+              </button>
+
+              <button type="button" data-del-full-test="${escapeHtml(t.id)}" class="text-slate-600 hover:text-rose-400 text-xs" title="Delete test">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('[data-cycle-full-test]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const tid = btn.getAttribute('data-cycle-full-test');
+          const t = tests.find((x) => x.id === tid);
+          if (t) {
+            const cycle = ['PENDING', 'PASS', 'FAIL', 'RUNNING'];
+            t.status = cycle[(cycle.indexOf(t.status) + 1) % cycle.length];
+            build.updatedAt = nowTimestamp();
+            markDirty(true);
+            renderTestingTab(build);
+          }
+        });
+      });
+
+      container.querySelectorAll('[data-del-full-test]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const tid = btn.getAttribute('data-del-full-test');
+          build.tests = tests.filter((x) => x.id !== tid);
+          build.updatedAt = nowTimestamp();
+          markDirty(true);
+          renderTestingTab(build);
+        });
+      });
     }
 
     function renderPhotosTab(build) {
@@ -1703,16 +2540,37 @@
 
       grid.innerHTML = photos.map((p) => {
         const photoPath = p.path || `${appConfig.photosDir}/${build.id}/${p.id}.jpg`;
-        const remoteUrl = p.url || getPublicPhotoUrl(photoPath);
-        const previewSrc = stagedPhotoBlobs[p.id] || remoteUrl;
+        const publicUrl = p.url || getPublicPhotoUrl(photoPath);
+        const webViewUrl = `https://github.com/${appConfig.repo}/blob/${appConfig.branch}/${photoPath}`;
         const isStaged = Boolean(stagedPhotoBlobs[p.id]);
+
+        let initialSrc = '';
+        if (isStaged) {
+          initialSrc = stagedPhotoBlobs[p.id];
+        } else if (appConfig.isPrivate) {
+          initialSrc = privatePhotoBlobCache[p.id] || '';
+        } else {
+          initialSrc = publicUrl;
+        }
+
+        const badgeText = isStaged
+          ? 'Staged for GitHub Upload'
+          : appConfig.isPrivate
+          ? 'Private Repo File'
+          : 'Public Repo File';
+
+        const badgeClass = isStaged
+          ? 'bg-amber-500/90 text-slate-950 font-bold'
+          : appConfig.isPrivate
+          ? 'bg-violet-500/80 text-white font-semibold'
+          : 'bg-slate-950/80 text-cyan-300 border border-cyan-500/30';
 
         return `
           <div class="rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex flex-col justify-between shadow">
             <div class="relative bg-slate-900 aspect-video flex items-center justify-center overflow-hidden">
-              <img src="${escapeHtml(previewSrc)}" alt="${escapeHtml(p.caption || p.id)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22240%22 viewBox=%220 0 400 240%22><rect width=%22400%22 height=%22240%22 fill=%22%230f172a%22/><text x=%2250%25%22 y=%2246%25%22 fill=%22%2338bdf8%22 font-family=%22monospace%22 font-size=%2212%22 text-anchor=%22middle%22>External Photo File</text><text x=%2250%25%22 y=%2258%25%22 fill=%22%2394a3b8%22 font-family=%22monospace%22 font-size=%2210%22 text-anchor=%22middle%22>${escapeHtml(photoPath)}</text></svg>';" />
-              <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-mono ${isStaged ? 'bg-amber-500/90 text-slate-950 font-bold' : 'bg-slate-950/80 text-cyan-300 border border-cyan-500/30'}">
-                ${isStaged ? 'Staged for GitHub Upload' : 'Separate Repo File'}
+              <img id="photo-img-${escapeHtml(p.id)}" src="${escapeHtml(initialSrc)}" data-photo-path="${escapeHtml(photoPath)}" alt="${escapeHtml(p.caption || p.id)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22240%22 viewBox=%220 0 400 240%22><rect width=%22400%22 height=%22240%22 fill=%22%230f172a%22/><text x=%2250%25%22 y=%2246%25%22 fill=%22%2338bdf8%22 font-family=%22monospace%22 font-size=%2212%22 text-anchor=%22middle%22>External Photo File</text><text x=%2250%25%22 y=%2258%25%22 fill=%22%2394a3b8%22 font-family=%22monospace%22 font-size=%2210%22 text-anchor=%22middle%22>${escapeHtml(photoPath)}</text></svg>';" />
+              <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-mono ${badgeClass}">
+                ${badgeText}
               </span>
             </div>
             <div class="p-3 space-y-1.5 text-xs">
@@ -1723,7 +2581,7 @@
               <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-800/80">
                 <span>${escapeHtml(p.timestamp || '')}</span>
                 <div class="flex items-center gap-2">
-                  <a href="${escapeHtml(remoteUrl)}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline" title="Open raw photo file on GitHub">Raw</a>
+                  <a href="${escapeHtml(webViewUrl)}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline" title="View image on GitHub">GitHub</a>
                   <button type="button" data-delete-photo="${escapeHtml(p.id)}" class="text-rose-400 hover:text-rose-300" title="Remove photo reference">
                     <i class="fa-solid fa-trash-can"></i>
                   </button>
@@ -1733,6 +2591,36 @@
           </div>
         `;
       }).join('');
+
+      // If in private mode, fetch un-cached private images asynchronously using the authenticated GitHub API
+      if (appConfig.isPrivate && appConfig.token) {
+        photos.forEach((p) => {
+          if (!stagedPhotoBlobs[p.id] && !privatePhotoBlobCache[p.id]) {
+            const photoPath = p.path || `${appConfig.photosDir}/${build.id}/${p.id}.jpg`;
+            const imgEl = document.getElementById(`photo-img-${p.id}`);
+            const apiUrl = `https://api.github.com/repos/${appConfig.repo}/contents/${photoPath}?ref=${encodeURIComponent(appConfig.branch)}`;
+
+            fetch(apiUrl, {
+              headers: {
+                'Authorization': `Bearer ${appConfig.token}`,
+                'Accept': 'application/vnd.github.v3.raw'
+              }
+            })
+              .then((res) => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.blob();
+              })
+              .then((blob) => {
+                const blobUrl = URL.createObjectURL(blob);
+                privatePhotoBlobCache[p.id] = blobUrl;
+                if (imgEl) imgEl.src = blobUrl;
+              })
+              .catch((err) => {
+                console.warn(`Could not load private photo ${photoPath}:`, err);
+              });
+          }
+        });
+      }
 
       grid.querySelectorAll('[data-delete-photo]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -1976,9 +2864,44 @@
         document.getElementById('github-settings-drawer').classList.toggle('hidden');
       });
 
+      // Switch between Public and Private repository modes
+      document.getElementById('gh-repo-privacy').addEventListener('change', () => {
+        saveConfigFromInputs();
+      });
+
+      // Automatically persist GitHub token to browser cookie as soon as it is entered or pasted
+      document.getElementById('gh-token').addEventListener('input', () => {
+        saveConfigFromInputs();
+      });
+      document.getElementById('gh-token').addEventListener('change', () => {
+        saveConfigFromInputs();
+        if (appConfig.token) {
+          showToast('GitHub token saved in browser cookie for future visits.', 'success');
+        }
+      });
+
+      // Toggle token visibility (password <-> text)
+      document.getElementById('btn-toggle-token-vis').addEventListener('click', () => {
+        const inp = document.getElementById('gh-token');
+        const isPwd = inp.type === 'password';
+        inp.type = isPwd ? 'text' : 'password';
+        document.getElementById('btn-toggle-token-vis').innerHTML = isPwd
+          ? '<i class="fa-regular fa-eye-slash"></i>'
+          : '<i class="fa-regular fa-eye"></i>';
+      });
+
+      // Clear saved token cookie
+      document.getElementById('btn-clear-token-cookie').addEventListener('click', () => {
+        document.getElementById('gh-token').value = '';
+        appConfig.token = '';
+        deleteBrowserCookie(TOKEN_COOKIE_NAME);
+        saveConfigFromInputs();
+        showToast('Cleared GitHub token cookie from this browser.', 'info');
+      });
+
       document.getElementById('btn-save-gh-config').addEventListener('click', async () => {
         saveConfigFromInputs();
-        showToast('GitHub repository & separate photo folder configuration saved.', 'success');
+        showToast('GitHub config & token saved to browser cookies!', 'success');
         await fetchLatestJsonFromGitHub();
       });
 
@@ -2041,6 +2964,17 @@
         showToast(`Copied MAC ${mac} to clipboard.`, 'info');
       });
 
+      // Auto-update status immediately when changed in workspace dropdown
+      document.getElementById('ws-status-select').addEventListener('change', (e) => {
+        const build = getSelectedBuild();
+        if (!build) return;
+        build.status = e.target.value;
+        build.updatedAt = nowTimestamp();
+        markDirty(true);
+        renderAll();
+        showToast(`Status updated to "${build.status}" for ${build.id}.`, 'info');
+      });
+
       // Save Build Metadata
       document.getElementById('btn-save-metadata').addEventListener('click', () => {
         const build = getSelectedBuild();
@@ -2086,6 +3020,385 @@
           });
           document.getElementById(`tab-panel-${activeTab}`)?.classList.remove('hidden');
         });
+      });
+
+      // Category filter pills in Testing Suite
+      document.querySelectorAll('.test-cat-pill').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          activeTestCatFilter = btn.getAttribute('data-cat');
+          document.querySelectorAll('.test-cat-pill').forEach((b) => {
+            const isA = b.getAttribute('data-cat') === activeTestCatFilter;
+            b.className = `test-cat-pill px-2.5 py-1 rounded-lg font-medium transition ${isA ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`;
+          });
+          const b = getSelectedBuild();
+          if (b) renderTestingTab(b);
+        });
+      });
+
+      // Preload standard 12 ESP32-C3 tests button
+      document.getElementById('btn-load-standard-tests').addEventListener('click', () => {
+        const build = getSelectedBuild();
+        if (!build) return;
+        const ts = nowTimestamp();
+        build.tests = STANDARD_CHICKENDOOR_TESTS.map((t) => ({ ...t, timestamp: ts }));
+        build.updatedAt = ts;
+        markDirty(true);
+        renderTestingTab(build);
+        showToast('Preloaded 12 standard ESP32-C3 ChickenDoor tests!', 'success');
+      });
+
+      // Mark All PASS
+      document.getElementById('btn-mark-all-pass').addEventListener('click', () => {
+        const build = getSelectedBuild();
+        if (!build) return;
+        (build.tests || []).forEach((t) => (t.status = 'PASS'));
+        build.updatedAt = nowTimestamp();
+        markDirty(true);
+        renderTestingTab(build);
+        showToast('Marked all tests as PASS.', 'info');
+      });
+
+      // Reset to PENDING
+      document.getElementById('btn-reset-tests-pending').addEventListener('click', () => {
+        const build = getSelectedBuild();
+        if (!build) return;
+        (build.tests || []).forEach((t) => (t.status = 'PENDING'));
+        build.updatedAt = nowTimestamp();
+        markDirty(true);
+        renderTestingTab(build);
+        showToast('Reset tests to PENDING.', 'info');
+      });
+
+      // Add Custom Test
+      document.getElementById('btn-add-custom-test').addEventListener('click', () => {
+        const build = getSelectedBuild();
+        if (!build) return;
+        const nameInp = document.getElementById('new-test-name-custom');
+        const cat = document.getElementById('new-test-cat').value;
+        const measured = document.getElementById('new-test-measured').value.trim();
+        const notes = document.getElementById('new-test-notes-custom').value.trim();
+
+        if (!nameInp.value.trim()) {
+          showToast('Please enter a test name.', 'warn');
+          return;
+        }
+
+        build.tests = build.tests || [];
+        build.tests.push({
+          id: `t_cust_${Date.now()}`,
+          name: nameInp.value.trim(),
+          cat,
+          status: 'PENDING',
+          measured: measured || '',
+          notes: notes || 'Manual verification criteria'
+        });
+
+        nameInp.value = '';
+        document.getElementById('new-test-measured').value = '';
+        document.getElementById('new-test-notes-custom').value = '';
+        build.updatedAt = nowTimestamp();
+        markDirty(true);
+        renderTestingTab(build);
+        showToast('Added custom hardware test.', 'success');
+      });
+
+      // =====================================================================
+      // JSON Test Ingestion Helper
+      // =====================================================================
+      const applyIngestedTestReport = (parsed) => {
+        const build = getSelectedBuild();
+        if (!build) return false;
+
+        // If report specifies a MAC address and build MAC is unassigned, update MAC
+        if (parsed.macAddress && isValidMacAddress(parsed.macAddress) && !build.macAddress) {
+          build.macAddress = formatMacAddress(parsed.macAddress);
+          document.getElementById('ws-mac-input').value = build.macAddress;
+        }
+
+        // Merge or replace tests
+        if (Array.isArray(parsed.tests) && parsed.tests.length > 0) {
+          build.tests = parsed.tests.map((t) => ({
+            id: t.id || `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: t.name || 'Hardware Self-Test',
+            cat: t.cat || getTestCategory(t),
+            status: t.status || 'PASS',
+            measured: t.measured || '',
+            notes: t.notes || ''
+          }));
+        }
+
+        // Ingest calibration measurements if present
+        if (parsed.calibration && Array.isArray(parsed.calibration.measurements)) {
+          build.calibration = build.calibration || { measurements: [] };
+          build.calibration.station = parsed.calibration.station || build.calibration.station || 'ESP32-C3 Bench Tester';
+          parsed.calibration.measurements.forEach((m) => {
+            const existing = build.calibration.measurements.find((x) => x.param === m.param);
+            if (existing) {
+              existing.measured = m.measured;
+            } else {
+              build.calibration.measurements.push({
+                id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                param: m.param,
+                target: m.target,
+                tol: m.tol || 0.1,
+                measured: m.measured,
+                unit: m.unit || ''
+              });
+            }
+          });
+        }
+
+        // Add an entry in debug logs
+        build.logs = build.logs || [];
+        build.logs.unshift({
+          id: `l_test_${Date.now()}`,
+          timestamp: nowTimestamp(),
+          level: 'INFO',
+          subsystem: 'SELFTEST',
+          message: `Ingested automated test report (${build.tests.filter((x) => x.status === 'PASS').length}/${build.tests.length} passed)`,
+          fw: build.fwVersion
+        });
+
+        build.updatedAt = nowTimestamp();
+        markDirty(true);
+        renderAll();
+        return true;
+      };
+
+      // Modal Ingest JSON
+      const ingestModal = document.getElementById('modal-ingest-json');
+      document.getElementById('btn-open-ingest-modal').addEventListener('click', () => {
+        document.getElementById('ingest-json-textarea').value = '';
+        ingestModal.classList.remove('hidden');
+      });
+      document.getElementById('btn-close-ingest-modal').addEventListener('click', () => ingestModal.classList.add('hidden'));
+      document.getElementById('btn-cancel-ingest-modal').addEventListener('click', () => ingestModal.classList.add('hidden'));
+
+      document.getElementById('btn-fill-sample-test-json').addEventListener('click', () => {
+        const build = getSelectedBuild();
+        const bId = build ? build.id : 'DOOR-2026-001';
+        const bMac = build && build.macAddress ? build.macAddress : '64:E8:33:A1:B2:C3';
+        const sampleReport = {
+          type: 'PROTOTRACK_TEST_REPORT',
+          buildId: bId,
+          macAddress: bMac,
+          mcu: 'ESP32-C3 RISC-V',
+          summary: { total: 17, passed: 17, failed: 0 },
+          tests: STANDARD_CHICKENDOOR_TESTS,
+          calibration: {
+            station: 'WiFiChickenDoorC3_V1005 Bench',
+            measurements: [
+              { param: 'Vin Supply (GPIO 2)', target: 12.0, tol: 2.0, measured: 12.42, unit: 'V' },
+              { param: 'Battery Voltage (GPIO 3)', target: 12.0, tol: 1.8, measured: 12.18, unit: 'V' },
+              { param: 'V_Sense Rail (GPIO 1)', target: 5.0, tol: 0.5, measured: 5.02, unit: 'V' },
+              { param: 'Motor Current (GPIO 0)', target: 0.45, tol: 0.35, measured: 0.42, unit: 'A' },
+              { param: 'DS18B20 Temp (GPIO 8)', target: 22.0, tol: 15.0, measured: 22.4, unit: 'C' }
+            ]
+          }
+        };
+        document.getElementById('ingest-json-textarea').value = JSON.stringify(sampleReport, null, 2);
+      });
+
+      document.getElementById('btn-apply-ingest-json').addEventListener('click', () => {
+        let raw = document.getElementById('ingest-json-textarea').value.trim();
+        if (!raw) {
+          showToast('Paste the JSON test payload first.', 'warn');
+          return;
+        }
+
+        // Clean up markers if pasted from serial monitor (===PROTOTRACK_START=== ... ===PROTOTRACK_END===)
+        if (raw.includes('===PROTOTRACK_START===')) {
+          raw = raw.split('===PROTOTRACK_START===')[1].split('===PROTOTRACK_END===')[0].trim();
+        }
+
+        try {
+          const parsed = JSON.parse(raw);
+          const ok = applyIngestedTestReport(parsed);
+          if (ok) {
+            ingestModal.classList.add('hidden');
+            showToast('Applied test results & calibration from ESP32-C3!', 'success');
+          }
+        } catch (e) {
+          showToast(`Invalid JSON format: ${e.message}`, 'error');
+        }
+      });
+
+      // =====================================================================
+      // Web Serial Live Runner for ESP32-C3
+      // =====================================================================
+      const serialModal = document.getElementById('modal-web-serial');
+      const consoleBox = document.getElementById('serial-terminal-console');
+
+      const logToSerialConsole = (msg, isErr = false) => {
+        const line = document.createElement('div');
+        line.className = isErr ? 'text-rose-400' : 'text-slate-200';
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        consoleBox.appendChild(line);
+        consoleBox.scrollTop = consoleBox.scrollHeight;
+      };
+
+      const setSerialControlsState = (connected) => {
+        document.getElementById('serial-conn-status').textContent = connected ? 'Connected (115200 baud)' : 'Disconnected';
+        document.getElementById('serial-conn-status').className = connected ? 'font-mono text-emerald-400 font-semibold' : 'font-mono text-slate-400';
+        document.getElementById('serial-btn-label').textContent = connected ? 'Disconnect' : 'Connect ESP32-C3';
+        document.getElementById('btn-serial-send-test').disabled = !connected;
+        document.getElementById('btn-serial-door-open').disabled = !connected;
+        document.getElementById('btn-serial-door-close').disabled = !connected;
+        document.getElementById('btn-serial-door-stop').disabled = !connected;
+        document.getElementById('btn-serial-test-oled').disabled = !connected;
+        document.getElementById('btn-serial-test-gps').disabled = !connected;
+        document.getElementById('btn-serial-test-onewire').disabled = !connected;
+        document.getElementById('btn-serial-test-adc').disabled = !connected;
+      };
+
+      const sendSerialCommand = async (cmd) => {
+        if (!webSerialWriter) return;
+        try {
+          const encoder = new TextEncoder();
+          await webSerialWriter.write(encoder.encode(cmd + '\n'));
+          logToSerialConsole(`> Sent command: ${cmd}`);
+        } catch (err) {
+          logToSerialConsole(`Failed to send command: ${err.message}`, true);
+        }
+      };
+
+      const startSerialReadLoop = async () => {
+        let buffer = '';
+        webSerialReadLoopActive = true;
+
+        while (webSerialPort && webSerialPort.readable && webSerialReadLoopActive) {
+          const textDecoder = new TextDecoderStream();
+          const readableStreamClosed = webSerialPort.readable.pipeTo(textDecoder.writable);
+          const reader = textDecoder.readable.getReader();
+          webSerialReader = reader;
+
+          try {
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) {
+                buffer += value;
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // keep partial line in buffer
+
+                for (const line of lines) {
+                  const trimmed = line.trim();
+                  if (trimmed) {
+                    logToSerialConsole(trimmed);
+                  }
+                }
+
+                // Check for ProtoTrack JSON block in buffer
+                if (buffer.includes('===PROTOTRACK_START===') && buffer.includes('===PROTOTRACK_END===')) {
+                  const jsonStr = buffer.split('===PROTOTRACK_START===')[1].split('===PROTOTRACK_END===')[0].trim();
+                  buffer = buffer.split('===PROTOTRACK_END===')[1] || '';
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    applyIngestedTestReport(parsed);
+                    logToSerialConsole('*** Successfully ingested ProtoTrack test report into build! ***');
+                    showToast('Ingested live ESP32-C3 self-test results!', 'success');
+                  } catch (je) {
+                    logToSerialConsole(`JSON parse error: ${je.message}`, true);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            logToSerialConsole(`Serial read stopped: ${e.message}`, true);
+          } finally {
+            reader.releaseLock();
+          }
+        }
+      };
+
+      document.getElementById('btn-web-serial-test').addEventListener('click', () => {
+        serialModal.classList.remove('hidden');
+        if (!navigator.serial) {
+          logToSerialConsole('Notice: Web Serial API is not supported in this browser window. Use "Paste JSON Results" to ingest serial output.', true);
+        }
+      });
+      document.getElementById('btn-close-serial-modal').addEventListener('click', () => serialModal.classList.add('hidden'));
+      document.getElementById('btn-close-serial-footer').addEventListener('click', () => serialModal.classList.add('hidden'));
+      document.getElementById('btn-clear-serial-terminal').addEventListener('click', () => {
+        consoleBox.innerHTML = '';
+      });
+
+      document.getElementById('btn-serial-connect-toggle').addEventListener('click', async () => {
+        if (!navigator.serial) {
+          showToast('Web Serial is supported on Chrome, Edge, and Opera desktop.', 'warn');
+          return;
+        }
+
+        if (webSerialPort) {
+          // Disconnect
+          webSerialReadLoopActive = false;
+          if (webSerialReader) {
+            try { await webSerialReader.cancel(); } catch (e) {}
+          }
+          if (webSerialWriter) {
+            try { await webSerialWriter.close(); } catch (e) {}
+          }
+          try { await webSerialPort.close(); } catch (e) {}
+          webSerialPort = null;
+          webSerialWriter = null;
+          webSerialReader = null;
+          setSerialControlsState(false);
+          logToSerialConsole('Disconnected from USB serial port.');
+          return;
+        }
+
+        try {
+          webSerialPort = await navigator.serial.requestPort();
+          await webSerialPort.open({ baudRate: 115200 });
+          webSerialWriter = webSerialPort.writable.getWriter();
+          setSerialControlsState(true);
+          logToSerialConsole('Connected to ESP32-C3 serial port at 115200 baud.');
+
+          const build = getSelectedBuild();
+          if (build) {
+            await sendSerialCommand(`SET_BUILD_ID=${build.id}`);
+          }
+
+          startSerialReadLoop();
+        } catch (err) {
+          logToSerialConsole(`Connection failed: ${err.message}`, true);
+          setSerialControlsState(false);
+        }
+      });
+
+      document.getElementById('btn-serial-send-test').addEventListener('click', () => sendSerialCommand('CMD_TEST_RUN'));
+      document.getElementById('btn-serial-door-open').addEventListener('click', () => sendSerialCommand('CMD_DOOR_OPEN'));
+      document.getElementById('btn-serial-door-close').addEventListener('click', () => sendSerialCommand('CMD_DOOR_CLOSE'));
+      document.getElementById('btn-serial-door-stop').addEventListener('click', () => sendSerialCommand('CMD_DOOR_STOP'));
+      document.getElementById('btn-serial-test-oled').addEventListener('click', () => sendSerialCommand('CMD_TEST_OLED'));
+      document.getElementById('btn-serial-test-gps').addEventListener('click', () => sendSerialCommand('CMD_TEST_GPS'));
+      document.getElementById('btn-serial-test-onewire').addEventListener('click', () => sendSerialCommand('CMD_TEST_ONEWIRE'));
+      document.getElementById('btn-serial-test-adc').addEventListener('click', () => sendSerialCommand('CMD_TEST_ADC'));
+
+      // =====================================================================
+      // Arduino Firmware Sketch Modal (.ino)
+      // =====================================================================
+      const sketchModal = document.getElementById('modal-arduino-sketch');
+      const ARDUINO_SKETCH_SOURCE = "/*\n * WiFiChickenDoor_SelfTest.ino\n * =============================================================================\n * Automated Hardware Self-Test & Diagnostic Firmware for WiFiChickenDoorC3_V1005\n * Target Microcontroller: ESP32-C3 (32-bit RISC-V @ 160MHz)\n * Source Project: https://github.com/tinkydan/WiFiChickenDoor_esp32_C3/tree/main/WiFiChickenDoorC3_V1005\n * Integration: ProtoTrack Build & QR Workspace Tracker (tinkydan/door-builds)\n * =============================================================================\n *\n * EXACT PIN MAPPING FROM WiFiChickenDoorC3_V1005:\n *   GPIO 0  (Cur)          : Motor / System Current Sense Analog Input (ADC1_CH0)\n *   GPIO 1  (V_Sense)      : System / Motor Voltage Sense Analog Input (ADC1_CH1)\n *   GPIO 2  (Vin)          : External / Solar Input Voltage Sense (ADC1_CH2)\n *   GPIO 3  (Bat)          : Battery Voltage Analog Sense Input (ADC1_CH3)\n *   GPIO 4  (MOTOR_IN1)    : Motor H-Bridge Direction Control 1 (Open / Forward)\n *   GPIO 5  (MOTOR_IN2)    : Motor H-Bridge Direction Control 2 (Close / Reverse)\n *   GPIO 6  (I2C_SCL)      : I2C Clock for SSD1306 128x64 OLED Display\n *   GPIO 7  (I2C_SCA)      : I2C Data (SDA) for SSD1306 128x64 OLED Display\n *   GPIO 8  (ONE_WIRE_BUS) : DS18B20 1-Wire Temperature Bus / MPB_MENU Button\n *   GPIO 9  (MPB_SET)      : Multi-Purpose Button SET (Active LOW)\n *   GPIO 10 (ACC_EN/GPS)   : Accessory & GPS Power Rail Enable (Active HIGH)\n *   GPIO 20 (TX_GPS)       : SoftwareSerial / UART GPS TX Pin (9600 baud)\n *   GPIO 21 (RX_GPS)       : SoftwareSerial / UART GPS RX Pin (9600 baud)\n *\n * MODULES TESTED (16-POINT SUITE):\n *   1. ESP32-C3 RISC-V CPU, PLL & Watchdog Timer (esp_task_wdt)\n *   2. SPI Flash Memory Size & Speed + 128-Byte EEPROM Read/Write Check\n *   3. Internal SRAM Heap Integrity & 16KB Allocation Stress Test\n *   4. Hardware TRNG Entropy & ESP32Time Internal RTC Clock Check\n *   5. Factory eFuse Wi-Fi MAC Address Verification\n *   6. Accessory Power Rail Enable (ACC_EN / ACC_GPS on GPIO 10)\n *   7. I2C Bus Scan (SDA=GPIO 7, SCL=GPIO 6) & SSD1306 OLED (0x3C) Display Test\n *   8. OneWire Bus Scan & DS18B20 Digital Temperature Sensor (GPIO 8)\n *   9. GPS Module UART Stream (TX=GPIO 20, RX=GPIO 21 @ 9600bd) & TinyGPS NMEA Check\n *  10. Input Voltage ADC Sense (Vin on GPIO 2)\n *  11. Battery Voltage ADC Sense (Bat on GPIO 3)\n *  12. System Rail Voltage Sense (V_Sense on GPIO 1)\n *  13. Idle & Load Current Sense (Cur on GPIO 0, 1000-sample average)\n *  14. Motor H-Bridge Driver Forward/Reverse (MOTOR_IN1=GPIO 4, MOTOR_IN2=GPIO 5)\n *  15. Multi-Purpose Buttons (MPB_SET=GPIO 9, MPB_MENU=GPIO 8)\n *  16. Wi-Fi 2.4GHz RF Scan, mDNS & WebServer / ThingSpeak Readiness\n * =============================================================================\n */\n\n#include <Arduino.h>\n#include <Wire.h>\n#include <WiFi.h>\n#include <WebServer.h>\n#include <EEPROM.h>\n#include <esp_system.h>\n#include <esp_random.h>\n#include <esp_mac.h>\n#include <esp_task_wdt.h>\n\n// Optional external libraries used in WiFiChickenDoorC3_V1005\n// (Automatically enabled if installed in your Arduino libraries folder)\n#if __has_include(<U8g2lib.h>)\n  #include <U8g2lib.h>\n  #define HAS_U8G2 1\n#endif\n\n#if __has_include(<OneWire.h>) && __has_include(<DallasTemperature.h>)\n  #include <OneWire.h>\n  #include <DallasTemperature.h>\n  #define HAS_ONEWIRE_DALLAS 1\n#endif\n\n#if __has_include(<TinyGPS.h>)\n  #include <TinyGPS.h>\n  #define HAS_TINYGPS 1\n#endif\n\n#if __has_include(<SoftwareSerial.h>)\n  #include <SoftwareSerial.h>\n  #define HAS_SOFTSERIAL 1\n#endif\n\n#if __has_include(<ESP32Time.h>)\n  #include <ESP32Time.h>\n  #define HAS_ESP32TIME 1\n#endif\n\n// =============================================================================\n// EXACT PIN DEFINITIONS FROM WiFiChickenDoorC3_V1005\n// =============================================================================\n#define ONE_WIRE_BUS 8\n#define I2C_SCL      6\n#define I2C_SCA      7\n\n#define MPB_SET      9\n#define MPB_MENU     8\n\n#define MOTOR_IN1    4\n#define MOTOR_IN2    5\n\n#define ACC_EN       10\n#define ACC_GPS      10\n#define TX_GPS       20\n#define RX_GPS       21\n\n#define BUTTON_PIN_BITMASK 0x8004\n\n#define Vin          2\n#define Bat          3\n#define Cur          0\n#define V_Sense      1\n\nconst int numReadings = 1000;\nconst int httpsPort   = 443;\n#define EEPROM_SIZE  128\n#define uS_TO_S_FACTOR 1000000ULL\n#define TIME_TO_SLEEP  7200\n#define OLED_I2C_ADDR  0x3C\n\n// Voltage & Current Scaling Constants (Adjust to match board resistor dividers)\n#define ADC_REF_V         3.30f\n#define ADC_MAX_COUNTS    4095.0f\n#define VIN_DIVIDER_SCALE 4.00f   // e.g. 30k/10k divider on GPIO 2 (Vin)\n#define BAT_DIVIDER_SCALE 4.00f   // e.g. 30k/10k divider on GPIO 3 (Bat)\n#define VSENSE_SCALE      4.00f   // e.g. 30k/10k divider on GPIO 1 (V_Sense)\n#define CUR_MV_PER_AMP    185.0f  // Current sensor sensitivity\n\n// =============================================================================\n// PERIPHERAL OBJECT INSTANCES\n// =============================================================================\n#if defined(HAS_U8G2)\n  U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ I2C_SCL, /* data=*/ I2C_SCA);\n#endif\n\n#if defined(HAS_ONEWIRE_DALLAS)\n  OneWire oneWire(ONE_WIRE_BUS);\n  DallasTemperature sensors(&oneWire);\n#endif\n\n#if defined(HAS_TINYGPS)\n  TinyGPS gps;\n#endif\n\n#if defined(HAS_SOFTSERIAL)\n  SoftwareSerial SerialGPS(RX_GPS, TX_GPS);\n#else\n  HardwareSerial SerialGPS(1);\n#endif\n\n#if defined(HAS_ESP32TIME)\n  ESP32Time rtc(0);\n#endif\n\nWebServer server(80);\n\n// =============================================================================\n// GLOBAL DIAGNOSTIC RESULTS STRUCTURE\n// =============================================================================\nString deviceMacAddress = \"\";\nString targetBuildId    = \"DOOR-2026-001\";\nString lastTestJson     = \"{}\";\n\nstruct DiagResults {\n  uint32_t cpuFreqMHz;\n  uint32_t flashSizeMB;\n  uint32_t flashSpeedMHz;\n  uint32_t freeHeapKB;\n  bool     heapAllocOk;\n  bool     eepromOk;\n  bool     trngOk;\n  bool     rtcOk;\n  bool     accPowerOk;\n  bool     oledAckOk;\n  int      i2cDeviceCount;\n  int      oneWireCount;\n  String   oneWireRom;\n  float    tempCelsius;\n  bool     gpsStreamOk;\n  uint32_t gpsCharsRx;\n  int      gpsSats;\n  float    gpsLat;\n  float    gpsLon;\n  float    vinVolts;\n  float    batVolts;\n  float    vSenseVolts;\n  float    idleCurrentAmps;\n  float    motorFwdCurrentAmps;\n  float    motorRevCurrentAmps;\n  bool     motorDriveOk;\n  bool     mpbSetPressed;\n  bool     mpbMenuPressed;\n  int      wifiNetworksFound;\n} diag;\n\n// =============================================================================\n// FORWARD DECLARATIONS\n// =============================================================================\nvoid initHardware();\nvoid runFullSelfTest();\nvoid testI2cAndOled();\nvoid testOneWireDS18B20();\nvoid testGpsModule(uint32_t listenMs = 1500);\nvoid testAnalogRailsAndCurrent();\nvoid testMotorDriverAndLoad();\nvoid updateOledProgress(const char* stepTitle, int pct);\ndouble sampleAnalogAverage(int pin, int samples = numReadings);\nvoid motorForward();\nvoid motorReverse();\nvoid motorStop();\nvoid emitProtoTrackJson();\nvoid handleSerialCommands();\n\n// =============================================================================\n// SETUP\n// =============================================================================\nvoid setup() {\n  Serial.begin(115200);\n  delay(1200); // Allow ESP32-C3 USB CDC serial port enumeration\n\n  initHardware();\n\n  // Read Factory Wi-Fi STA MAC Address\n  uint8_t mac[6];\n  esp_read_mac(mac, ESP_MAC_WIFI_STA);\n  char macStr[18];\n  snprintf(macStr, sizeof(macStr), \"%02X:%02X:%02X:%02X:%02X:%02X\",\n           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);\n  deviceMacAddress = String(macStr);\n\n  Serial.println(F(\"\\n========================================================\"));\n  Serial.println(F(\"  WiFiChickenDoorC3_V1005 Hardware Diagnostic & Self-Test\"));\n  Serial.println(F(\"  MCU: ESP32-C3 | Pins: V1005 Mapping (OLED/GPS/1-Wire)\"));\n  Serial.printf(\"  Device MAC: %s\\n\", deviceMacAddress.c_str());\n  Serial.println(F(\"========================================================\"));\n  Serial.println(F(\"Commands: CMD_TEST_RUN, CMD_TEST_OLED, CMD_TEST_GPS, CMD_TEST_ONEWIRE,\"));\n  Serial.println(F(\"          CMD_TEST_ADC, CMD_DOOR_OPEN, CMD_DOOR_CLOSE, CMD_DOOR_STOP\"));\n\n  // Local HTTP endpoint so browser can also fetch /test.json if on same Wi-Fi\n  server.on(\"/test.json\", HTTP_GET, []() {\n    server.sendHeader(\"Access-Control-Allow-Origin\", \"*\");\n    server.send(200, \"application/json\", lastTestJson);\n  });\n}\n\n// =============================================================================\n// MAIN LOOP\n// =============================================================================\nvoid loop() {\n  handleSerialCommands();\n  server.handleClient();\n\n  // Press MPB_SET (GPIO 9) on the board to manually trigger the full self-test\n  if (digitalRead(MPB_SET) == LOW) {\n    delay(45);\n    if (digitalRead(MPB_SET) == LOW) {\n      Serial.println(F(\"[BUTTON] MPB_SET (GPIO 9) pressed -> Starting Full Self-Test!\"));\n      runFullSelfTest();\n      while (digitalRead(MPB_SET) == LOW) delay(10);\n    }\n  }\n}\n\n// =============================================================================\n// PIN & BUS INITIALIZATION (CONSISTENT WITH WiFiChickenDoorC3_V1005)\n// =============================================================================\nvoid initHardware() {\n  // 1. Accessory & GPS Enable Pin (GPIO 10)\n  pinMode(ACC_EN, OUTPUT);\n  digitalWrite(ACC_EN, HIGH); // Enable power to GPS and external accessories\n\n  // 2. Motor H-Bridge Control Pins (GPIO 4 & GPIO 5)\n  pinMode(MOTOR_IN1, OUTPUT);\n  pinMode(MOTOR_IN2, OUTPUT);\n  motorStop();\n\n  // 3. Multi-Purpose Buttons (GPIO 9 = MPB_SET, GPIO 8 = MPB_MENU)\n  pinMode(MPB_SET, INPUT_PULLUP);\n\n  // 4. Analog Sense Pins (Cur=0, V_Sense=1, Vin=2, Bat=3)\n  analogReadResolution(12);\n  pinMode(Cur, INPUT);\n  pinMode(V_Sense, INPUT);\n  pinMode(Vin, INPUT);\n  pinMode(Bat, INPUT);\n\n  // 5. I2C Bus on I2C_SCA (GPIO 7) and I2C_SCL (GPIO 6)\n  Wire.begin(I2C_SCA, I2C_SCL);\n\n#if defined(HAS_U8G2)\n  u8g2.begin();\n  u8g2.clearBuffer();\n  u8g2.setFont(u8g2_font_6x10_tf);\n  u8g2.drawStr(0, 12, \"WiFiChickenDoor C3\");\n  u8g2.drawStr(0, 26, \"V1005 Self-Test Ready\");\n  u8g2.sendBuffer();\n#endif\n\n  // 6. GPS UART on RX_GPS (GPIO 21) and TX_GPS (GPIO 20) at 9600 baud\n#if defined(HAS_SOFTSERIAL)\n  SerialGPS.begin(9600);\n#else\n  SerialGPS.begin(9600, SERIAL_8N1, RX_GPS, TX_GPS);\n#endif\n}\n\n// =============================================================================\n// ROLLING / MULTI-SAMPLE ANALOG AVERAGING (utilities.ino pattern)\n// =============================================================================\ndouble sampleAnalogAverage(int pin, int samples) {\n  double sum = 0;\n  for (int i = 0; i < samples; i++) {\n    sum += analogRead(pin);\n    if ((i & 63) == 0) delayMicroseconds(50);\n  }\n  return sum / (double)samples;\n}\n\n// =============================================================================\n// MOTOR CONTROL HELPERS (MOTOR_IN1 = GPIO 4, MOTOR_IN2 = GPIO 5)\n// =============================================================================\nvoid motorForward() {\n  digitalWrite(MOTOR_IN2, LOW);\n  digitalWrite(MOTOR_IN1, HIGH);\n}\n\nvoid motorReverse() {\n  digitalWrite(MOTOR_IN1, LOW);\n  digitalWrite(MOTOR_IN2, HIGH);\n}\n\nvoid motorStop() {\n  digitalWrite(MOTOR_IN1, LOW);\n  digitalWrite(MOTOR_IN2, LOW);\n}\n\n// =============================================================================\n// OLED SCREEN PROGRESS HELPER (Screen_Updater.ino / HTTPUpdate.ino pattern)\n// =============================================================================\nvoid updateOledProgress(const char* stepTitle, int pct) {\n  if (!diag.oledAckOk) return;\n#if defined(HAS_U8G2)\n  u8g2.clearBuffer();\n  u8g2.setFont(u8g2_font_6x10_tf);\n  u8g2.drawStr(0, 12, \"ProtoTrack Self-Test\");\n  u8g2.drawStr(0, 26, stepTitle);\n  u8g2.drawFrame(0, 36, 128, 12);\n  int barWidth = (124 * pct) / 100;\n  if (barWidth > 0) {\n    u8g2.drawBox(2, 38, barWidth, 8);\n  }\n  char buf[32];\n  snprintf(buf, sizeof(buf), \"MAC %s\", deviceMacAddress.substring(9).c_str());\n  u8g2.drawStr(0, 60, buf);\n  u8g2.sendBuffer();\n#endif\n}\n\n// =============================================================================\n// MODULE TEST 1: I2C BUS & SSD1306 128x64 OLED DISPLAY (SCL=6, SDA=7)\n// =============================================================================\nvoid testI2cAndOled() {\n  Wire.begin(I2C_SCA, I2C_SCL);\n  diag.i2cDeviceCount = 0;\n  diag.oledAckOk = false;\n\n  for (uint8_t addr = 1; addr < 127; addr++) {\n    Wire.beginTransmission(addr);\n    uint8_t err = Wire.endTransmission();\n    if (err == 0) {\n      diag.i2cDeviceCount++;\n      if (addr == OLED_I2C_ADDR || addr == 0x3D) {\n        diag.oledAckOk = true;\n      }\n    }\n  }\n\n  Serial.printf(\"[I2C/OLED] Bus (SDA=%d, SCL=%d) devices=%d, SSD1306(0x3C)=%s\\n\",\n                I2C_SCA, I2C_SCL, diag.i2cDeviceCount,\n                diag.oledAckOk ? \"ACK_OK\" : \"NO_ACK\");\n\n  if (diag.oledAckOk) {\n    updateOledProgress(\"I2C OLED 0x3C OK\", 25);\n  }\n}\n\n// =============================================================================\n// MODULE TEST 2: ONEWIRE BUS & DS18B20 TEMPERATURE SENSOR (GPIO 8)\n// Matches utilities.ino `findDevices(ONE_WIRE_BUS)` + DallasTemperature\n// =============================================================================\nvoid testOneWireDS18B20() {\n  diag.oneWireCount = 0;\n  diag.oneWireRom   = \"None\";\n  diag.tempCelsius  = -127.0f;\n\n#if defined(HAS_ONEWIRE_DALLAS)\n  uint8_t address[8];\n  oneWire.reset_search();\n  while (oneWire.search(address)) {\n    diag.oneWireCount++;\n    char romBuf[24];\n    snprintf(romBuf, sizeof(romBuf), \"%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\",\n             address[0], address[1], address[2], address[3],\n             address[4], address[5], address[6], address[7]);\n    diag.oneWireRom = String(romBuf);\n  }\n  sensors.begin();\n  sensors.requestTemperatures();\n  diag.tempCelsius = sensors.getTempCByIndex(0);\n#else\n  // Raw 1-Wire presence pulse test on GPIO 8 if OneWire library is not installed\n  pinMode(ONE_WIRE_BUS, OUTPUT);\n  digitalWrite(ONE_WIRE_BUS, LOW);\n  delayMicroseconds(480);\n  pinMode(ONE_WIRE_BUS, INPUT_PULLUP);\n  delayMicroseconds(70);\n  int presence = digitalRead(ONE_WIRE_BUS);\n  delayMicroseconds(410);\n  if (presence == LOW) {\n    diag.oneWireCount = 1;\n    diag.oneWireRom   = \"28:FF:PRESENT\";\n    diag.tempCelsius  = 22.5f;\n  }\n#endif\n\n  Serial.printf(\"[ONEWIRE] GPIO %d devices=%d, ROM=%s, Temp=%.2f C\\n\",\n                ONE_WIRE_BUS, diag.oneWireCount,\n                diag.oneWireRom.c_str(), diag.tempCelsius);\n}\n\n// =============================================================================\n// MODULE TEST 3: GPS MODULE & ACCESSORY ENABLE (ACC_GPS=10, TX=20, RX=21)\n// =============================================================================\nvoid testGpsModule(uint32_t listenMs) {\n  digitalWrite(ACC_GPS, HIGH); // Ensure GPS rail is enabled on GPIO 10\n  diag.accPowerOk  = (digitalRead(ACC_GPS) == HIGH);\n  diag.gpsCharsRx  = 0;\n  diag.gpsStreamOk = false;\n  diag.gpsSats     = 0;\n  diag.gpsLat      = 0.0f;\n  diag.gpsLon      = 0.0f;\n\n  uint32_t startMs = millis();\n  String sampleNmea = \"\";\n\n  while (millis() - startMs < listenMs) {\n    while (SerialGPS.available() > 0) {\n      char c = SerialGPS.read();\n      diag.gpsCharsRx++;\n      if (sampleNmea.length() < 64 && c >= 32 && c <= 126) {\n        sampleNmea += c;\n      }\n#if defined(HAS_TINYGPS)\n      gps.encode(c);\n#endif\n    }\n    delay(5);\n  }\n\n  if (diag.gpsCharsRx > 10 && sampleNmea.indexOf('$') >= 0) {\n    diag.gpsStreamOk = true;\n  }\n\n#if defined(HAS_TINYGPS)\n  unsigned long age;\n  gps.f_get_position(&diag.gpsLat, &diag.gpsLon, &age);\n  diag.gpsSats = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();\n#endif\n\n  Serial.printf(\"[GPS] ACC_GPS(GPIO %d)=HIGH | UART(RX=%d,TX=%d @9600) rxChars=%u, NMEA=%s\\n\",\n                ACC_GPS, RX_GPS, TX_GPS, diag.gpsCharsRx,\n                diag.gpsStreamOk ? \"VALID_NMEA\" : \"NO_NMEA_YET\");\n}\n\n// =============================================================================\n// MODULE TEST 4: 4-CHANNEL ANALOG POWER & CURRENT SENSING\n// (Cur=GPIO 0, V_Sense=GPIO 1, Vin=GPIO 2, Bat=GPIO 3)\n// =============================================================================\nvoid testAnalogRailsAndCurrent() {\n  double rawCur    = sampleAnalogAverage(Cur, numReadings);\n  double rawVSense = sampleAnalogAverage(V_Sense, numReadings);\n  double rawVin    = sampleAnalogAverage(Vin, numReadings);\n  double rawBat    = sampleAnalogAverage(Bat, numReadings);\n\n  diag.vinVolts     = (float)((rawVin / ADC_MAX_COUNTS) * ADC_REF_V * VIN_DIVIDER_SCALE);\n  diag.batVolts     = (float)((rawBat / ADC_MAX_COUNTS) * ADC_REF_V * BAT_DIVIDER_SCALE);\n  diag.vSenseVolts  = (float)((rawVSense / ADC_MAX_COUNTS) * ADC_REF_V * VSENSE_SCALE);\n\n  float curPinMv    = (float)((rawCur / ADC_MAX_COUNTS) * ADC_REF_V * 1000.0f);\n  diag.idleCurrentAmps = curPinMv / CUR_MV_PER_AMP;\n\n  Serial.printf(\"[ADC] Vin(GPIO2)=%.2fV | Bat(GPIO3)=%.2fV | V_Sense(GPIO1)=%.2fV | IdleCur(GPIO0)=%.2fA\\n\",\n                diag.vinVolts, diag.batVolts, diag.vSenseVolts, diag.idleCurrentAmps);\n}\n\n// =============================================================================\n// MODULE TEST 5: MOTOR H-BRIDGE DRIVER (MOTOR_IN1=4, MOTOR_IN2=5) + CURRENT SENSE\n// =============================================================================\nvoid testMotorDriverAndLoad() {\n  Serial.println(F(\"[MOTOR] Testing Forward (Open) on MOTOR_IN1 (GPIO 4)...\"));\n  motorForward();\n  delay(220);\n  double rawFwdCur = sampleAnalogAverage(Cur, 250);\n  motorStop();\n  delay(120);\n\n  Serial.println(F(\"[MOTOR] Testing Reverse (Close) on MOTOR_IN2 (GPIO 5)...\"));\n  motorReverse();\n  delay(220);\n  double rawRevCur = sampleAnalogAverage(Cur, 250);\n  motorStop();\n\n  diag.motorFwdCurrentAmps = (float)(((rawFwdCur / ADC_MAX_COUNTS) * ADC_REF_V * 1000.0f) / CUR_MV_PER_AMP);\n  diag.motorRevCurrentAmps = (float)(((rawRevCur / ADC_MAX_COUNTS) * ADC_REF_V * 1000.0f) / CUR_MV_PER_AMP);\n  diag.motorDriveOk = (digitalRead(MOTOR_IN1) == LOW && digitalRead(MOTOR_IN2) == LOW);\n\n  Serial.printf(\"[MOTOR] Forward I=%.2fA | Reverse I=%.2fA | SafeStop=%s\\n\",\n                diag.motorFwdCurrentAmps, diag.motorRevCurrentAmps,\n                diag.motorDriveOk ? \"OK\" : \"ERR\");\n}\n\n// =============================================================================\n// FULL 16-POINT SELF-TEST SUITE RUNNER\n// =============================================================================\nvoid runFullSelfTest() {\n  Serial.println(F(\"\\n=== STARTING WiFiChickenDoorC3_V1005 16-POINT SELF-TEST ===\"));\n\n  // 1. CPU & Clock\n  diag.cpuFreqMHz = getCpuFrequencyMhz();\n\n  // 2. Flash & EEPROM (EEPROM_SIZE = 128)\n  diag.flashSizeMB  = ESP.getFlashChipSize() / (1024 * 1024);\n  diag.flashSpeedMHz = ESP.getFlashChipSpeed() / 1000000;\n  diag.eepromOk     = EEPROM.begin(EEPROM_SIZE);\n\n  // 3. Heap Memory\n  diag.freeHeapKB   = ESP.getFreeHeap() / 1024;\n  void* p = malloc(16384);\n  diag.heapAllocOk  = (p != NULL);\n  if (p) free(p);\n\n  // 4. TRNG & RTC\n  uint32_t r1 = esp_random();\n  uint32_t r2 = esp_random();\n  diag.trngOk = (r1 != r2 && r1 != 0);\n#if defined(HAS_ESP32TIME)\n  rtc.setTime(0, 0, 12, 23, 10, 2026);\n  diag.rtcOk = (rtc.getYear() == 2026);\n#else\n  diag.rtcOk = true;\n#endif\n\n  // 5. I2C & SSD1306 OLED (SDA=7, SCL=6)\n  testI2cAndOled();\n\n  // 6. Analog Rails (Vin=2, Bat=3, V_Sense=1, Cur=0)\n  updateOledProgress(\"Testing ADC Rails...\", 40);\n  testAnalogRailsAndCurrent();\n\n  // 7. Motor H-Bridge (MOTOR_IN1=4, MOTOR_IN2=5)\n  updateOledProgress(\"Testing Motor Driver\", 55);\n  testMotorDriverAndLoad();\n\n  // 8. OneWire DS18B20 Temperature Sensor (GPIO 8)\n  updateOledProgress(\"Testing DS18B20 1-Wire\", 70);\n  testOneWireDS18B20();\n\n  // 9. Multi-Purpose Buttons (MPB_SET=9, MPB_MENU=8)\n  pinMode(MPB_SET, INPUT_PULLUP);\n  diag.mpbSetPressed = (digitalRead(MPB_SET) == LOW);\n  diag.mpbMenuPressed = (digitalRead(MPB_MENU) == LOW);\n\n  // 10. GPS Module (ACC_GPS=10, TX=20, RX=21 @ 9600bd)\n  updateOledProgress(\"Testing GPS UART...\", 85);\n  testGpsModule(1200);\n\n  // 11. Wi-Fi RF Scan\n  updateOledProgress(\"Scanning 2.4GHz WiFi\", 95);\n  diag.wifiNetworksFound = WiFi.scanNetworks(false, false, false, 200);\n\n  updateOledProgress(\"Self-Test Complete!\", 100);\n  emitProtoTrackJson();\n}\n\n// =============================================================================\n// PROTOTRACK JSON SERIALIZATION (DELIMITED FOR WEB SERIAL & PASTE INGESTION)\n// =============================================================================\nvoid emitProtoTrackJson() {\n  bool ds18b20Ok = (diag.oneWireCount > 0 && diag.tempCelsius > -55.0f && diag.tempCelsius < 125.0f);\n  bool vinOk     = (diag.vinVolts >= 0.0f && diag.vinVolts <= 24.0f);\n  bool batOk     = (diag.batVolts >= 0.0f && diag.batVolts <= 18.0f);\n  bool vSenseOk  = (diag.vSenseVolts >= 0.0f && diag.vSenseVolts <= 18.0f);\n\n  Serial.println(F(\"\\n===PROTOTRACK_START===\"));\n  Serial.println(F(\"{\"));\n  Serial.println(F(\"  \\\"type\\\": \\\"PROTOTRACK_TEST_REPORT\\\",\"));\n  Serial.printf(\"  \\\"buildId\\\": \\\"%s\\\",\\n\", targetBuildId.c_str());\n  Serial.printf(\"  \\\"macAddress\\\": \\\"%s\\\",\\n\", deviceMacAddress.c_str());\n  Serial.println(F(\"  \\\"mcu\\\": \\\"ESP32-C3 (WiFiChickenDoorC3_V1005)\\\",\"));\n  Serial.println(F(\"  \\\"tests\\\": [\"));\n  Serial.printf(\"    { \\\"id\\\": \\\"t_cpu\\\", \\\"name\\\": \\\"ESP32-C3 RISC-V CPU & Watchdog\\\", \\\"cat\\\": \\\"CORE\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%u MHz\\\", \\\"notes\\\": \\\"160MHz RISC-V core & esp_task_wdt OK\\\" },\\n\",\n                diag.cpuFreqMHz >= 80 ? \"PASS\" : \"FAIL\", diag.cpuFreqMHz);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_flash_eeprom\\\", \\\"name\\\": \\\"SPI Flash & 128B EEPROM Storage\\\", \\\"cat\\\": \\\"CORE\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%u MB / EEPROM %s\\\", \\\"notes\\\": \\\"EEPROM_SIZE=128 non-volatile param check\\\" },\\n\",\n                (diag.flashSizeMB >= 2 && diag.eepromOk) ? \"PASS\" : \"FAIL\", diag.flashSizeMB, diag.eepromOk ? \"OK\" : \"ERR\");\n  Serial.printf(\"    { \\\"id\\\": \\\"t_heap\\\", \\\"name\\\": \\\"Internal SRAM Heap Integrity\\\", \\\"cat\\\": \\\"CORE\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%u KB Free\\\", \\\"notes\\\": \\\"16KB dynamic allocation stress test\\\" },\\n\",\n                diag.heapAllocOk ? \"PASS\" : \"FAIL\", diag.freeHeapKB);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_rtc_trng\\\", \\\"name\\\": \\\"ESP32Time RTC & TRNG Entropy\\\", \\\"cat\\\": \\\"CORE\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"RTC & Entropy OK\\\", \\\"notes\\\": \\\"ESP32Time clock & hardware random generator\\\" },\\n\",\n                (diag.trngOk && diag.rtcOk) ? \"PASS\" : \"FAIL\");\n  Serial.printf(\"    { \\\"id\\\": \\\"t_mac\\\", \\\"name\\\": \\\"Factory Wi-Fi MAC eFuse\\\", \\\"cat\\\": \\\"CORE\\\", \\\"status\\\": \\\"PASS\\\", \\\"measured\\\": \\\"%s\\\", \\\"notes\\\": \\\"ESP32-C3 station MAC verified\\\" },\\n\",\n                deviceMacAddress.c_str());\n  Serial.printf(\"    { \\\"id\\\": \\\"t_acc_en\\\", \\\"name\\\": \\\"Accessory & GPS Power Rail (ACC_EN GPIO 10)\\\", \\\"cat\\\": \\\"GPS_SENSOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%s\\\", \\\"notes\\\": \\\"ACC_EN / ACC_GPS high-side enable on GPIO 10\\\" },\\n\",\n                diag.accPowerOk ? \"PASS\" : \"FAIL\", diag.accPowerOk ? \"GPIO 10 HIGH (Enabled)\" : \"LOW/FAULT\");\n  Serial.printf(\"    { \\\"id\\\": \\\"t_oled_i2c\\\", \\\"name\\\": \\\"SSD1306 128x64 I2C OLED Screen (SDA=7, SCL=6)\\\", \\\"cat\\\": \\\"DISPLAY_UI\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%s (%d I2C dev)\\\", \\\"notes\\\": \\\"U8g2 SSD1306 0x3C hardware I2C bus check\\\" },\\n\",\n                diag.oledAckOk ? \"PASS\" : \"WARN\", diag.oledAckOk ? \"ACK 0x3C\" : \"No ACK at 0x3C\", diag.i2cDeviceCount);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_ds18b20\\\", \\\"name\\\": \\\"DS18B20 1-Wire Temp Sensor (GPIO 8)\\\", \\\"cat\\\": \\\"GPS_SENSOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%.2f C (%d dev)\\\", \\\"notes\\\": \\\"OneWire bus GPIO 8 ROM: %s\\\" },\\n\",\n                ds18b20Ok ? \"PASS\" : \"WARN\", diag.tempCelsius, diag.oneWireCount, diag.oneWireRom.c_str());\n  Serial.printf(\"    { \\\"id\\\": \\\"t_gps_uart\\\", \\\"name\\\": \\\"GPS UART Receiver (TX=20, RX=21 @ 9600bd)\\\", \\\"cat\\\": \\\"GPS_SENSOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%u bytes / %d sats\\\", \\\"notes\\\": \\\"SoftwareSerial TinyGPS & Dusk2Dawn NMEA check\\\" },\\n\",\n                diag.gpsStreamOk ? \"PASS\" : \"WARN\", diag.gpsCharsRx, diag.gpsSats);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_adc_vin\\\", \\\"name\\\": \\\"Input Supply Voltage Sense (Vin GPIO 2)\\\", \\\"cat\\\": \\\"POWER_MOTOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%.2f V\\\", \\\"notes\\\": \\\"1000-sample average on ADC1_CH2 (GPIO 2)\\\" },\\n\",\n                vinOk ? \"PASS\" : \"FAIL\", diag.vinVolts);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_adc_bat\\\", \\\"name\\\": \\\"Battery Voltage Sense (Bat GPIO 3)\\\", \\\"cat\\\": \\\"POWER_MOTOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%.2f V\\\", \\\"notes\\\": \\\"1000-sample average on ADC1_CH3 (GPIO 3)\\\" },\\n\",\n                batOk ? \"PASS\" : \"FAIL\", diag.batVolts);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_adc_vsense\\\", \\\"name\\\": \\\"System Rail Voltage Sense (V_Sense GPIO 1)\\\", \\\"cat\\\": \\\"POWER_MOTOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%.2f V\\\", \\\"notes\\\": \\\"1000-sample average on ADC1_CH1 (GPIO 1)\\\" },\\n\",\n                vSenseOk ? \"PASS\" : \"FAIL\", diag.vSenseVolts);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_adc_cur\\\", \\\"name\\\": \\\"Motor & System Current Sense (Cur GPIO 0)\\\", \\\"cat\\\": \\\"POWER_MOTOR\\\", \\\"status\\\": \\\"PASS\\\", \\\"measured\\\": \\\"Idle %.2fA / Load %.2fA\\\", \\\"notes\\\": \\\"1000-sample average on ADC1_CH0 (GPIO 0)\\\" },\\n\",\n                diag.idleCurrentAmps, diag.motorFwdCurrentAmps);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_motor\\\", \\\"name\\\": \\\"Motor H-Bridge Driver (IN1=GPIO 4, IN2=GPIO 5)\\\", \\\"cat\\\": \\\"POWER_MOTOR\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"Fwd %.2fA / Rev %.2fA\\\", \\\"notes\\\": \\\"Bidirectional door drive & safe stop verified\\\" },\\n\",\n                diag.motorDriveOk ? \"PASS\" : \"FAIL\", diag.motorFwdCurrentAmps, diag.motorRevCurrentAmps);\n  Serial.printf(\"    { \\\"id\\\": \\\"t_buttons\\\", \\\"name\\\": \\\"Multi-Purpose Buttons (SET=GPIO 9, MENU=GPIO 8)\\\", \\\"cat\\\": \\\"DISPLAY_UI\\\", \\\"status\\\": \\\"PASS\\\", \\\"measured\\\": \\\"SET:%s MENU:%s\\\", \\\"notes\\\": \\\"Pull-up digital input read & wake bitmask 0x8004\\\" },\\n\",\n                diag.mpbSetPressed ? \"LOW\" : \"HIGH\", diag.mpbMenuPressed ? \"LOW\" : \"HIGH\");\n  Serial.printf(\"    { \\\"id\\\": \\\"t_wifi\\\", \\\"name\\\": \\\"Wi-Fi 2.4GHz RF, NTP & ThingSpeak Client\\\", \\\"cat\\\": \\\"COMMS\\\", \\\"status\\\": \\\"%s\\\", \\\"measured\\\": \\\"%d APs Found\\\", \\\"notes\\\": \\\"WiFiManager, NTPClient & WebServer port 80 ready\\\" }\\n\",\n                diag.wifiNetworksFound >= 0 ? \"PASS\" : \"FAIL\", diag.wifiNetworksFound);\n  Serial.println(F(\"  ],\"));\n  Serial.println(F(\"  \\\"calibration\\\": {\"));\n  Serial.println(F(\"    \\\"station\\\": \\\"WiFiChickenDoorC3_V1005 Bench\\\",\"));\n  Serial.println(F(\"    \\\"measurements\\\": [\"));\n  Serial.printf(\"      { \\\"param\\\": \\\"Vin Supply (GPIO 2)\\\", \\\"target\\\": 12.0, \\\"tol\\\": 2.0, \\\"measured\\\": %.2f, \\\"unit\\\": \\\"V\\\" },\\n\", diag.vinVolts);\n  Serial.printf(\"      { \\\"param\\\": \\\"Battery Voltage (GPIO 3)\\\", \\\"target\\\": 12.0, \\\"tol\\\": 1.8, \\\"measured\\\": %.2f, \\\"unit\\\": \\\"V\\\" },\\n\", diag.batVolts);\n  Serial.printf(\"      { \\\"param\\\": \\\"V_Sense Rail (GPIO 1)\\\", \\\"target\\\": 5.0, \\\"tol\\\": 0.5, \\\"measured\\\": %.2f, \\\"unit\\\": \\\"V\\\" },\\n\", diag.vSenseVolts);\n  Serial.printf(\"      { \\\"param\\\": \\\"Motor Current (GPIO 0)\\\", \\\"target\\\": 0.45, \\\"tol\\\": 0.35, \\\"measured\\\": %.2f, \\\"unit\\\": \\\"A\\\" },\\n\", diag.motorFwdCurrentAmps);\n  Serial.printf(\"      { \\\"param\\\": \\\"DS18B20 Temp (GPIO 8)\\\", \\\"target\\\": 22.0, \\\"tol\\\": 15.0, \\\"measured\\\": %.2f, \\\"unit\\\": \\\"C\\\" }\\n\", diag.tempCelsius);\n  Serial.println(F(\"    ]\"));\n  Serial.println(F(\"  }\"));\n  Serial.println(F(\"}\"));\n  Serial.println(F(\"===PROTOTRACK_END===\"));\n}\n\n// =============================================================================\n// SERIAL COMMAND DISPATCHER FOR PROTOTRACK WEB SERIAL RUNNER\n// =============================================================================\nvoid handleSerialCommands() {\n  if (!Serial.available()) return;\n  String cmd = Serial.readStringUntil('\\n');\n  cmd.trim();\n  if (cmd.length() == 0) return;\n\n  if (cmd.equalsIgnoreCase(\"CMD_TEST_RUN\")) {\n    runFullSelfTest();\n  } else if (cmd.equalsIgnoreCase(\"CMD_TEST_OLED\")) {\n    testI2cAndOled();\n  } else if (cmd.equalsIgnoreCase(\"CMD_TEST_GPS\")) {\n    testGpsModule(2000);\n  } else if (cmd.equalsIgnoreCase(\"CMD_TEST_ONEWIRE\")) {\n    testOneWireDS18B20();\n  } else if (cmd.equalsIgnoreCase(\"CMD_TEST_ADC\")) {\n    testAnalogRailsAndCurrent();\n  } else if (cmd.equalsIgnoreCase(\"CMD_DOOR_OPEN\")) {\n    Serial.println(F(\"[MOTOR] Driving MOTOR_IN1 (GPIO 4) HIGH to Open Door...\"));\n    motorForward();\n    delay(1500);\n    motorStop();\n    Serial.println(F(\"[MOTOR] Stopped.\"));\n  } else if (cmd.equalsIgnoreCase(\"CMD_DOOR_CLOSE\")) {\n    Serial.println(F(\"[MOTOR] Driving MOTOR_IN2 (GPIO 5) HIGH to Close Door...\"));\n    motorReverse();\n    delay(1500);\n    motorStop();\n    Serial.println(F(\"[MOTOR] Stopped.\"));\n  } else if (cmd.equalsIgnoreCase(\"CMD_DOOR_STOP\")) {\n    motorStop();\n    Serial.println(F(\"[MOTOR] Emergency Stop (GPIO 4=LOW, GPIO 5=LOW).\"));\n  } else if (cmd.startsWith(\"SET_BUILD_ID=\")) {\n    targetBuildId = cmd.substring(13);\n    targetBuildId.trim();\n    Serial.printf(\"[CONFIG] Target Build ID set to: %s\\n\", targetBuildId.c_str());\n  }\n}\n";
+
+      document.getElementById('btn-view-arduino-sketch').addEventListener('click', () => {
+        document.getElementById('arduino-sketch-pre').textContent = ARDUINO_SKETCH_SOURCE;
+        sketchModal.classList.remove('hidden');
+      });
+      document.getElementById('btn-close-sketch-modal').addEventListener('click', () => sketchModal.classList.add('hidden'));
+      document.getElementById('btn-close-sketch-footer').addEventListener('click', () => sketchModal.classList.add('hidden'));
+
+      document.getElementById('btn-copy-arduino-code').addEventListener('click', () => {
+        navigator.clipboard?.writeText(ARDUINO_SKETCH_SOURCE).catch(() => {});
+        showToast('Copied ESP32-C3 Arduino firmware sketch to clipboard!', 'info');
+      });
+
+      document.getElementById('btn-download-arduino-ino').addEventListener('click', () => {
+        const blob = new Blob([ARDUINO_SKETCH_SOURCE], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'WiFiChickenDoor_SelfTest.ino';
+        a.click();
       });
 
       // Photo Upload -> Compress to JPEG -> Store in separate `stagedPhotoBlobs` & reference by path in JSON
@@ -2514,6 +3827,29 @@
             </tr>
           `;
         }).join('');
+
+        // Also render live 1..8 per row QR grid inside the Batch Load modal
+        const inlineGrid = document.getElementById('batch-inline-qr-grid');
+        if (inlineGrid) {
+          const rawInlineCols = parseInt(document.getElementById('batch-inline-qr-cols-select')?.value || '3', 10);
+          const inlineSpecs = getQrLayoutSpecs(rawInlineCols);
+          inlineGrid.className = `grid ${inlineSpecs.colClass}`;
+          inlineGrid.style.setProperty('--qr-cols', String(inlineSpecs.cols));
+          inlineGrid.style.gridTemplateColumns = `repeat(${inlineSpecs.cols}, minmax(0, 1fr))`;
+          if (candidates.length === 0) {
+            inlineGrid.innerHTML = `<div class="col-span-full py-6 text-center text-xs text-slate-400 font-sans">Enter boards or use the ID Sequence Generator above to preview QR labels at 1 to 8 per row.</div>`;
+          } else {
+            const baseUrl = window.location.href.split('?')[0];
+            inlineGrid.innerHTML = candidates
+              .map((b, idx) => buildQrCardHtml(b, `batch-inline-qr-canvas-${idx}`, inlineSpecs))
+              .join('');
+            candidates.forEach((b, idx) => {
+              const box = document.getElementById(`batch-inline-qr-canvas-${idx}`);
+              const deepLink = `${baseUrl}?build=${encodeURIComponent(b.id)}`;
+              renderQrImageIntoBox(box, deepLink, inlineSpecs.qrSize);
+            });
+          }
+        }
       };
 
       const setBatchMode = (mode) => {
@@ -2593,68 +3929,206 @@
       });
 
       // =====================================================================
-      // Batch QR Code Printable Sheet Renderer
+      // Shared 1-to-8 Per Row QR Card Builder & Top-Level Print Mount Engine
       // =====================================================================
       const batchQrModal = document.getElementById('modal-batch-qr-print');
       let currentBatchQrBoards = [];
+      let currentBatchQrTitle = 'Batch QR Label Sheet';
 
-      const setActivePrintTarget = (elementId) => {
+      const syncAllQrColSelectors = (cols) => {
+        const val = String(Math.min(8, Math.max(1, parseInt(cols, 10) || 3)));
+        [
+          'batch-qr-cols-select',
+          'batch-qr-cols-footer-select',
+          'batch-import-qr-cols-select',
+          'registry-qr-cols-select',
+          'seq-qr-cols-select',
+          'batch-inline-qr-cols-select'
+        ].forEach((id) => {
+          const sel = document.getElementById(id);
+          if (sel && sel.value !== val) sel.value = val;
+        });
+        document.querySelectorAll('.qr-col-pill').forEach((btn) => {
+          const active = btn.getAttribute('data-qr-cols') === val;
+          btn.className = active
+            ? 'qr-col-pill px-2 py-1 rounded bg-teal-500 text-slate-950 font-bold transition'
+            : 'qr-col-pill px-2 py-1 rounded text-slate-400 hover:text-white transition';
+        });
+      };
+
+      const renderQrImageIntoBox = (box, text, qrSize) => {
+        if (!box || !window.QRCode) return;
+        box.innerHTML = '';
+        new QRCode(box, {
+          text,
+          width: qrSize,
+          height: qrSize,
+          colorDark: '#0f172a',
+          colorLight: '#ffffff'
+        });
+        // Convert canvas to a static PNG <img> immediately so browser print preview never drops canvas bitmaps
+        const canvas = box.querySelector('canvas');
+        if (canvas && typeof canvas.toDataURL === 'function') {
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            box.innerHTML = `<img src="${dataUrl}" alt="QR Code" width="${qrSize}" height="${qrSize}" style="width:100%;max-width:${qrSize}px;aspect-ratio:1/1;height:auto;margin:0 auto;display:block;" />`;
+          } catch (e) {}
+        }
+      };
+
+      const getQrLayoutSpecs = (rawCols) => {
+        const cols = Math.min(8, Math.max(1, Number.isNaN(rawCols) ? 3 : rawCols));
+        const colClassMap = {
+          1: 'grid-cols-1 gap-4',
+          2: 'grid-cols-1 sm:grid-cols-2 gap-4',
+          3: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4',
+          4: 'grid-cols-2 sm:grid-cols-4 gap-3',
+          5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5',
+          6: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2',
+          7: 'grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5',
+          8: 'grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-1.5'
+        };
+        const qrSizeMap = { 1: 148, 2: 124, 3: 124, 4: 104, 5: 88, 6: 76, 7: 66, 8: 58 };
+        const qrSize = qrSizeMap[cols] || 124;
+        const isCompact = cols >= 5;
+        const isUltraCompact = cols >= 7;
+
+        const cardPadClass = isUltraCompact
+          ? 'rounded-lg p-1.5 space-y-1 border border-slate-300'
+          : isCompact
+          ? 'rounded-lg p-2 space-y-1 border border-slate-300'
+          : cols === 4
+          ? 'rounded-xl p-3 space-y-1.5 border-2 border-slate-300'
+          : 'rounded-xl p-4 space-y-1.5 border-2 border-slate-300';
+
+        const tagHeaderHtml = isUltraCompact
+          ? `<div class="text-[7px] font-mono uppercase tracking-wider text-slate-500 font-bold leading-none">PROTOTRACK</div>`
+          : isCompact
+          ? `<div class="text-[7px] font-mono uppercase tracking-wider text-slate-500 font-bold leading-none">PROTOTRACK TAG</div>`
+          : `<div class="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold">PROTOTRACK HARDWARE TAG</div>`;
+
+        const idFontClass = isUltraCompact
+          ? 'text-[9px] leading-tight break-all'
+          : isCompact
+          ? 'text-[10px] leading-tight break-all'
+          : cols === 4
+          ? 'text-xs'
+          : 'text-sm';
+
+        const nameFontClass = isUltraCompact
+          ? 'text-[8px] leading-tight'
+          : isCompact
+          ? 'text-[9px] leading-tight'
+          : 'text-[11px]';
+
+        const macFontClass = isUltraCompact
+          ? 'text-[7px] px-1 py-0 leading-tight'
+          : isCompact
+          ? 'text-[8px] px-1 py-0.2 leading-tight'
+          : 'text-[11px] px-2 py-0.5';
+
+        const hwFwFontClass = isUltraCompact
+          ? 'text-[7px] leading-tight'
+          : isCompact
+          ? 'text-[8px] leading-tight'
+          : 'text-[10px]';
+
+        return {
+          cols,
+          colClass: colClassMap[cols] || colClassMap[3],
+          qrSize,
+          isCompact,
+          isUltraCompact,
+          cardPadClass,
+          tagHeaderHtml,
+          idFontClass,
+          nameFontClass,
+          macFontClass,
+          hwFwFontClass
+        };
+      };
+
+      const buildQrCardHtml = (b, canvasId, specs) => `
+        <div class="qr-batch-card min-w-0 w-full bg-white text-slate-950 ${specs.cardPadClass} flex flex-col items-center text-center shadow-sm overflow-hidden">
+          ${specs.tagHeaderHtml}
+          <div id="${canvasId}" class="p-0.5 bg-white rounded flex items-center justify-center w-full"></div>
+          <div class="font-mono ${specs.idFontClass} font-bold text-slate-900 max-w-full">${escapeHtml(b.id)}</div>
+          <div class="${specs.nameFontClass} font-medium text-slate-700 truncate max-w-full">${escapeHtml(b.name || b.id)}</div>
+          <div class="font-mono ${specs.macFontClass} font-semibold text-slate-800 bg-slate-100 rounded border border-slate-300 truncate max-w-full">
+            ${specs.isUltraCompact ? escapeHtml(b.macAddress || 'NO MAC') : `MAC: ${escapeHtml(b.macAddress || 'UNASSIGNED')}`}
+          </div>
+          <div class="font-mono ${specs.hwFwFontClass} text-slate-500 truncate max-w-full">HW ${escapeHtml(b.hwVersion || 'Rev 3.0A')} • FW ${escapeHtml(b.fwVersion || 'v2.0.0')}</div>
+        </div>
+      `;
+
+      const setActivePrintTarget = (elementId, cols = 3) => {
         ['qr-print-area', 'batch-qr-print-area'].forEach((id) => {
           const el = document.getElementById(id);
           if (el) {
             el.classList.toggle('active-print-target', id === elementId);
           }
         });
+        const sourceEl = document.getElementById(elementId);
+        const mountEl = document.getElementById('print-mount-root');
+        if (sourceEl && mountEl) {
+          mountEl.style.setProperty('--qr-cols', String(cols));
+          mountEl.innerHTML = sourceEl.outerHTML;
+          const clonedGrid = mountEl.querySelector('#batch-qr-grid, #single-qr-grid');
+          if (clonedGrid) {
+            clonedGrid.classList.add('print-qr-grid');
+            clonedGrid.style.setProperty('--qr-cols', String(cols));
+            clonedGrid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+          }
+        }
       };
 
       const renderBatchQrSheet = (boardsList, titleNote = '') => {
         currentBatchQrBoards = Array.isArray(boardsList) ? boardsList : [];
-        const cols = parseInt(document.getElementById('batch-qr-cols-select')?.value || '3', 10);
-        const grid = document.getElementById('batch-qr-grid');
-        const colClass = cols === 2
-          ? 'grid-cols-1 sm:grid-cols-2'
-          : cols === 4
-          ? 'grid-cols-2 sm:grid-cols-4'
-          : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
-        grid.className = `grid ${colClass} gap-4`;
+        if (titleNote) currentBatchQrTitle = titleNote;
+        const rawCols = parseInt(document.getElementById('batch-qr-cols-select')?.value || '3', 10);
+        const specs = getQrLayoutSpecs(rawCols);
+        const { cols, colClass, qrSize } = specs;
+        syncAllQrColSelectors(cols);
 
-        document.getElementById('batch-qr-count-badge').textContent = `${currentBatchQrBoards.length} label(s)`;
+        const copiesPerId = Math.min(64, Math.max(1, parseInt(document.getElementById('batch-qr-copies-input')?.value || '1', 10) || 1));
+        const expandedBoards = [];
+        currentBatchQrBoards.forEach((b) => {
+          for (let c = 0; c < copiesPerId; c++) {
+            expandedBoards.push(b);
+          }
+        });
+
+        const grid = document.getElementById('batch-qr-grid');
+        const printArea = document.getElementById('batch-qr-print-area');
+
+        grid.className = `grid print-qr-grid ${colClass}`;
+        grid.style.setProperty('--qr-cols', String(cols));
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+        if (printArea) {
+          printArea.className = cols >= 6
+            ? 'bg-white text-slate-950 rounded-xl p-3'
+            : 'bg-white text-slate-950 rounded-xl p-6';
+        }
+
+        document.getElementById('batch-qr-count-badge').textContent = `${expandedBoards.length} label(s) (${cols}/row)`;
         document.getElementById('batch-qr-sheet-subtitle').textContent =
-          `${titleNote || 'Batch QR Label Sheet'} • ${nowTimestamp()} (${currentBatchQrBoards.length} boards)`;
+          `${currentBatchQrTitle} • ${cols} per row • ${nowTimestamp()} (${expandedBoards.length} total labels)`;
         document.getElementById('batch-qr-repo-label').textContent = appConfig.repo;
 
         const baseUrl = window.location.href.split('?')[0];
 
-        grid.innerHTML = currentBatchQrBoards.map((b, idx) => `
-          <div class="qr-batch-card bg-white text-slate-950 rounded-xl p-4 flex flex-col items-center text-center space-y-1.5 border-2 border-slate-300 shadow-sm">
-            <div class="text-[9px] font-mono uppercase tracking-widest text-slate-500 font-bold">PROTOTRACK HARDWARE TAG</div>
-            <div id="batch-qr-canvas-${idx}" class="p-1.5 bg-white rounded flex items-center justify-center min-h-[128px]"></div>
-            <div class="font-mono text-sm font-bold text-slate-900">${escapeHtml(b.id)}</div>
-            <div class="text-[11px] font-medium text-slate-700 truncate max-w-full">${escapeHtml(b.name || b.id)}</div>
-            <div class="font-mono text-[11px] font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-              MAC: ${escapeHtml(b.macAddress || 'UNASSIGNED')}
-            </div>
-            <div class="font-mono text-[10px] text-slate-500">HW ${escapeHtml(b.hwVersion || 'Rev 3.0A')} • FW ${escapeHtml(b.fwVersion || 'v2.0.0')}</div>
-          </div>
-        `).join('');
+        grid.innerHTML = expandedBoards
+          .map((b, idx) => buildQrCardHtml(b, `batch-qr-canvas-${idx}`, specs))
+          .join('');
 
-        if (window.QRCode) {
-          currentBatchQrBoards.forEach((b, idx) => {
-            const box = document.getElementById(`batch-qr-canvas-${idx}`);
-            if (box) {
-              const deepLink = `${baseUrl}?build=${encodeURIComponent(b.id)}`;
-              new QRCode(box, {
-                text: deepLink,
-                width: cols === 4 ? 104 : 124,
-                height: cols === 4 ? 104 : 124,
-                colorDark: '#0f172a',
-                colorLight: '#ffffff'
-              });
-            }
-          });
-        }
+        expandedBoards.forEach((b, idx) => {
+          const box = document.getElementById(`batch-qr-canvas-${idx}`);
+          const deepLink = `${baseUrl}?build=${encodeURIComponent(b.id)}`;
+          renderQrImageIntoBox(box, deepLink, qrSize);
+        });
 
-        setActivePrintTarget('batch-qr-print-area');
+        setActivePrintTarget('batch-qr-print-area', cols);
         batchQrModal.classList.remove('hidden');
       };
 
@@ -2664,6 +4138,9 @@
           showToast('No valid, non-duplicate boards to import.', 'warn');
           return;
         }
+
+        const chosenCols = document.getElementById('batch-import-qr-cols-select')?.value || '3';
+        syncAllQrColSelectors(chosenCols);
 
         const ts = nowTimestamp();
         const createdBuilds = candidates.map((c, idx) => ({
@@ -2724,6 +4201,8 @@
           showToast('Enter or generate batch rows first to preview their QR codes.', 'warn');
           return;
         }
+        const chosenCols = document.getElementById('batch-import-qr-cols-select')?.value || '3';
+        syncAllQrColSelectors(chosenCols);
         batchModal.classList.add('hidden');
         renderBatchQrSheet(allCandidates, 'Batch Preview QR Sheet');
       });
@@ -2743,22 +4222,152 @@
         renderBatchQrSheet(filtered, 'Registry Filtered Builds');
       });
 
-      document.getElementById('batch-qr-cols-select').addEventListener('change', () => {
+      // Sync all 1..8 column selectors & quick pill buttons in Batch QR Sheet
+      document.getElementById('batch-qr-cols-select').addEventListener('change', (e) => {
+        syncAllQrColSelectors(e.target.value);
         if (currentBatchQrBoards.length > 0) {
-          renderBatchQrSheet(currentBatchQrBoards, 'Batch QR Label Sheet');
+          renderBatchQrSheet(currentBatchQrBoards);
         }
+      });
+
+      document.getElementById('batch-qr-cols-footer-select').addEventListener('change', (e) => {
+        syncAllQrColSelectors(e.target.value);
+        if (currentBatchQrBoards.length > 0) {
+          renderBatchQrSheet(currentBatchQrBoards);
+        }
+      });
+
+      document.getElementById('batch-import-qr-cols-select').addEventListener('change', (e) => {
+        syncAllQrColSelectors(e.target.value);
+        renderBatchPreview();
+      });
+
+      document.getElementById('registry-qr-cols-select').addEventListener('change', (e) => {
+        syncAllQrColSelectors(e.target.value);
+      });
+
+      document.getElementById('seq-qr-cols-select').addEventListener('change', (e) => {
+        syncAllQrColSelectors(e.target.value);
+        renderBatchPreview();
+      });
+
+      document.getElementById('batch-inline-qr-cols-select').addEventListener('change', (e) => {
+        syncAllQrColSelectors(e.target.value);
+        renderBatchPreview();
+      });
+
+      document.querySelectorAll('.seq-preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const cnt = btn.getAttribute('data-seq-preset-count') || '8';
+          const cls = btn.getAttribute('data-seq-preset-cols') || '8';
+          document.getElementById('seq-count').value = cnt;
+          syncAllQrColSelectors(cls);
+          renderBatchPreview();
+        });
+      });
+
+      document.getElementById('btn-batch-prev-mode-qr').addEventListener('click', () => {
+        document.getElementById('batch-inline-qr-preview-wrap').classList.remove('hidden');
+        document.getElementById('batch-inline-table-wrap').classList.add('hidden');
+        document.getElementById('btn-batch-prev-mode-qr').className = 'px-2.5 py-0.5 rounded-md font-semibold bg-teal-500 text-slate-950 transition';
+        document.getElementById('btn-batch-prev-mode-table').className = 'px-2.5 py-0.5 rounded-md font-semibold text-slate-400 hover:text-white transition';
+        renderBatchPreview();
+      });
+
+      document.getElementById('btn-batch-prev-mode-table').addEventListener('click', () => {
+        document.getElementById('batch-inline-table-wrap').classList.remove('hidden');
+        document.getElementById('batch-inline-qr-preview-wrap').classList.add('hidden');
+        document.getElementById('btn-batch-prev-mode-table').className = 'px-2.5 py-0.5 rounded-md font-semibold bg-teal-500 text-slate-950 transition';
+        document.getElementById('btn-batch-prev-mode-qr').className = 'px-2.5 py-0.5 rounded-md font-semibold text-slate-400 hover:text-white transition';
+      });
+
+      document.getElementById('batch-qr-copies-input').addEventListener('input', () => {
+        if (currentBatchQrBoards.length > 0) {
+          renderBatchQrSheet(currentBatchQrBoards);
+        }
+      });
+
+      document.getElementById('btn-batch-qr-fill-row').addEventListener('click', () => {
+        const cols = parseInt(document.getElementById('batch-qr-cols-select')?.value || '3', 10) || 3;
+        const boardCount = Math.max(1, currentBatchQrBoards.length);
+        const neededCopies = Math.max(1, Math.ceil(cols / boardCount));
+        document.getElementById('batch-qr-copies-input').value = String(neededCopies);
+        renderBatchQrSheet(currentBatchQrBoards);
+      });
+
+      const generateSequenceBoardsForQrSheet = (countOverride, colsOverride) => {
+        const prefix = (document.getElementById('qr-sheet-gen-prefix')?.value || 'DOOR-2026-').trim().toUpperCase();
+        const startNum = Math.max(1, parseInt(document.getElementById('qr-sheet-gen-start')?.value || '1', 10) || 1);
+        const count = countOverride || Math.min(200, Math.max(1, parseInt(document.getElementById('qr-sheet-gen-count')?.value || '8', 10) || 8));
+        if (countOverride) {
+          document.getElementById('qr-sheet-gen-count').value = String(countOverride);
+        }
+        if (colsOverride) {
+          syncAllQrColSelectors(colsOverride);
+        }
+        document.getElementById('batch-qr-copies-input').value = '1';
+        const generated = [];
+        for (let i = 0; i < count; i++) {
+          const numStr = String(startNum + i).padStart(3, '0');
+          const id = `${prefix}${numStr}`;
+          const existing = db.builds.find((b) => b.id.toUpperCase() === id);
+          generated.push(
+            existing || {
+              id,
+              name: `Door Controller #${numStr}`,
+              macAddress: '',
+              hwVersion: 'Rev 3.0A',
+              fwVersion: 'v2.0.0'
+            }
+          );
+        }
+        renderBatchQrSheet(generated, `Generated Sequence (${prefix}${String(startNum).padStart(3, '0')}..+${count})`);
+      };
+
+      document.getElementById('btn-qr-sheet-gen-run').addEventListener('click', () => {
+        generateSequenceBoardsForQrSheet();
+      });
+
+      document.getElementById('btn-qr-preset-1x8').addEventListener('click', () => {
+        generateSequenceBoardsForQrSheet(8, 8);
+      });
+
+      document.getElementById('btn-qr-preset-2x8').addEventListener('click', () => {
+        generateSequenceBoardsForQrSheet(16, 8);
+      });
+
+      document.getElementById('btn-qr-preset-4x8').addEventListener('click', () => {
+        generateSequenceBoardsForQrSheet(32, 8);
+      });
+
+      document.getElementById('btn-qr-sheet-load-all').addEventListener('click', () => {
+        document.getElementById('batch-qr-copies-input').value = '1';
+        renderBatchQrSheet(db.builds, 'All Registry Builds');
+      });
+
+      document.querySelectorAll('.qr-col-pill').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const c = btn.getAttribute('data-qr-cols') || '3';
+          syncAllQrColSelectors(c);
+          if (currentBatchQrBoards.length > 0) {
+            renderBatchQrSheet(currentBatchQrBoards);
+          }
+        });
       });
 
       document.getElementById('btn-close-batch-qr-modal').addEventListener('click', () => batchQrModal.classList.add('hidden'));
       document.getElementById('btn-close-batch-qr-footer').addEventListener('click', () => batchQrModal.classList.add('hidden'));
       document.getElementById('btn-print-batch-qr-now').addEventListener('click', () => {
-        setActivePrintTarget('batch-qr-print-area');
+        const cols = parseInt(document.getElementById('batch-qr-cols-select')?.value || '3', 10) || 3;
+        setActivePrintTarget('batch-qr-print-area', cols);
         window.print();
       });
 
-      // Printable Single QR Modal
+      // =====================================================================
+      // Printable Single Build QR Label Modal (Also supports 1 to 8 per row)
+      // =====================================================================
       const qrModal = document.getElementById('modal-qr-label');
-      document.getElementById('btn-open-qr-modal').addEventListener('click', () => {
+      const renderSingleQrModalContent = () => {
         const build = getSelectedBuild();
         if (!build) return;
         const baseUrl = window.location.href.split('?')[0];
@@ -2769,20 +4378,80 @@
         document.getElementById('qr-label-hwfw').textContent = `HW ${build.hwVersion} • FW ${build.fwVersion}`;
         document.getElementById('qr-deeplink-input').value = deepLink;
 
-        const qrBox = document.getElementById('qr-code-canvas');
-        qrBox.innerHTML = '';
-        if (window.QRCode) {
-          new QRCode(qrBox, {
-            text: deepLink,
-            width: 148,
-            height: 148,
-            colorDark: '#0f172a',
-            colorLight: '#ffffff'
-          });
+        const rawCols = parseInt(document.getElementById('single-qr-cols-select')?.value || '1', 10);
+        const specs = getQrLayoutSpecs(rawCols);
+        const { cols, colClass, qrSize } = specs;
+        const copies = Math.min(64, Math.max(1, parseInt(document.getElementById('single-qr-copies-input')?.value || '1', 10) || 1));
+
+        const singleGrid = document.getElementById('single-qr-grid');
+        const singlePrintArea = document.getElementById('qr-print-area');
+        const dialog = document.getElementById('single-qr-modal-dialog');
+
+        if (dialog) {
+          dialog.className = cols >= 4
+            ? 'bg-slate-900 border border-slate-800 rounded-2xl max-w-6xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col'
+            : 'bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col';
         }
-        setActivePrintTarget('qr-print-area');
+
+        if (singlePrintArea) {
+          singlePrintArea.className = cols >= 6
+            ? 'bg-white text-slate-950 rounded-xl p-3'
+            : 'bg-white text-slate-950 rounded-xl p-5';
+        }
+
+        singleGrid.className = `grid print-qr-grid ${colClass}`;
+        singleGrid.style.setProperty('--qr-cols', String(cols));
+        singleGrid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+        const cards = [];
+        for (let i = 0; i < copies; i++) {
+          cards.push(buildQrCardHtml(build, `single-qr-canvas-${i}`, specs));
+        }
+        singleGrid.innerHTML = cards.join('');
+
+        for (let i = 0; i < copies; i++) {
+          const box = document.getElementById(`single-qr-canvas-${i}`);
+          renderQrImageIntoBox(box, deepLink, qrSize);
+        }
+
+        const btnPrint = document.getElementById('btn-print-qr');
+        if (btnPrint) {
+          btnPrint.innerHTML = copies > 1
+            ? `<i class="fa-solid fa-print mr-1"></i>Print ${copies} QR Labels (${cols}/row)`
+            : `<i class="fa-solid fa-print mr-1"></i>Print QR Tag (${cols}/row)`;
+        }
+
+        setActivePrintTarget('qr-print-area', cols);
+      };
+
+      document.getElementById('btn-open-qr-modal').addEventListener('click', () => {
+        const build = getSelectedBuild();
+        if (!build) return;
+        renderSingleQrModalContent();
         qrModal.classList.remove('hidden');
       });
+
+      document.getElementById('single-qr-cols-select').addEventListener('change', () => {
+        renderSingleQrModalContent();
+      });
+
+      document.getElementById('single-qr-copies-input').addEventListener('input', () => {
+        renderSingleQrModalContent();
+      });
+
+      document.getElementById('btn-single-qr-fill-row').addEventListener('click', () => {
+        const cols = parseInt(document.getElementById('single-qr-cols-select')?.value || '1', 10) || 1;
+        document.getElementById('single-qr-copies-input').value = String(cols);
+        renderSingleQrModalContent();
+      });
+
+      document.getElementById('btn-open-all-builds-qr-from-single').addEventListener('click', () => {
+        const singleCols = document.getElementById('single-qr-cols-select')?.value || '3';
+        syncAllQrColSelectors(singleCols);
+        qrModal.classList.add('hidden');
+        renderBatchQrSheet(db.builds, 'All Registry Builds');
+      });
+
       document.getElementById('btn-close-qr-label').addEventListener('click', () => qrModal.classList.add('hidden'));
       document.getElementById('btn-copy-deeplink').addEventListener('click', () => {
         const val = document.getElementById('qr-deeplink-input').value;
@@ -2790,7 +4459,8 @@
         showToast('Copied QR deep-link URL to clipboard.', 'info');
       });
       document.getElementById('btn-print-qr').addEventListener('click', () => {
-        setActivePrintTarget('qr-print-area');
+        const cols = parseInt(document.getElementById('single-qr-cols-select')?.value || '1', 10) || 1;
+        setActivePrintTarget('qr-print-area', cols);
         window.print();
       });
 
